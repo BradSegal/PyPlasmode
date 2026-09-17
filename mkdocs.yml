@@ -1,4 +1,5 @@
 site_name: PyPlasmode
+site_url: https://bradsegal.github.io/PyPlasmode/
 site_description: Simulate biomarker signals and evaluate prediction and feature recovery
 repo_url: https://github.com/BradSegal/PyPlasmode
 theme: readthedocs

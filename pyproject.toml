@@ -28,7 +28,7 @@ classifiers = [
 
 [project.urls]
 Repository = "https://github.com/BradSegal/PyPlasmode"
-Documentation = "https://github.com/BradSegal/PyPlasmode/tree/main/docs"
+Documentation = "https://bradsegal.github.io/PyPlasmode/"
 Issues = "https://github.com/BradSegal/PyPlasmode/issues"
 
 [project.optional-dependencies]

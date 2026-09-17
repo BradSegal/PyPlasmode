@@ -102,7 +102,7 @@ known values and reference estimators.
 The executable [quickstart](https://github.com/BradSegal/PyPlasmode/blob/main/examples/quickstart.py),
 [survival example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/survival.py)
 and [custom signal](https://github.com/BradSegal/PyPlasmode/blob/main/examples/custom_signal.py)
-use synthetic inputs. The [documentation](https://github.com/BradSegal/PyPlasmode/tree/main/docs)
+use synthetic inputs. The [documentation](https://bradsegal.github.io/PyPlasmode/)
 includes the generation methods, evaluation definitions and API reference.
 
 ## Working with empirical data
