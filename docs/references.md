@@ -37,14 +37,31 @@ PyPlasmode's own numerical checks and reference results are documented in [Valid
 
 ## Numerical libraries
 
-| Component | Documentation and use in PyPlasmode |
-| --- | --- |
-| Random sampling | [NumPy generators](https://numpy.org/doc/stable/reference/random/index.html) draw samples; [SeedSequence spawning](https://numpy.org/doc/stable/reference/random/parallel.html) creates separate seeded streams for sampling, signal construction and outcome generation. |
-| Outcome calibration | [SciPy brentq](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.brentq.html) solves the expectation equations defined in [Outcomes](outcomes.md#calibration-equations). |
-| Chance recovery | [SciPy hypergeom](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.hypergeom.html) supplies probabilities for sampling without replacement, used in matched recovery and its tests. |
-| Count dispersion | [SciPy nbinom](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.nbinom.html) supplies reference moments for the negative-binomial generator tests. |
-| Ranking and uncertainty | [SciPy spearmanr](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.spearmanr.html) compares rankings; [Student's t distribution](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.t.html) supplies the critical value for replicate-mean intervals. |
-| Prediction | [scikit-learn metrics](https://scikit-learn.org/stable/api/sklearn.metrics.html) compute ROC AUC, average precision, log loss, R-squared and root mean squared error. |
-| Signal reconstruction | scikit-learn's [SimpleImputer](https://scikit-learn.org/stable/modules/generated/sklearn.impute.SimpleImputer.html) and [LinearRegression](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html) fit median imputation and ordinary least squares on development rows. |
-| Tutorial tuning | scikit-learn's [pipeline guidance](https://scikit-learn.org/stable/common_pitfalls.html#data-leakage) explains why preprocessing is fitted within cross-validation folds. |
-| Reference effect estimates | statsmodels [GLM](https://www.statsmodels.org/stable/generated/statsmodels.genmod.generalized_linear_model.GLM.html), [OLS](https://www.statsmodels.org/stable/generated/statsmodels.regression.linear_model.OLS.html), [OrderedModel](https://www.statsmodels.org/stable/generated/statsmodels.miscmodels.ordinal_model.OrderedModel.html) and [PHReg](https://www.statsmodels.org/stable/generated/statsmodels.duration.hazard_regression.PHReg.html) provide the binomial, Poisson, linear, ordered-logistic and Cox fits in the [validation example](validation.md). |
+- **Random sampling:** [NumPy generators](https://numpy.org/doc/stable/reference/random/index.html)
+  draw samples; [SeedSequence spawning](https://numpy.org/doc/stable/reference/random/parallel.html)
+  creates separate seeded streams for sampling, signal construction and outcome generation.
+- **Outcome calibration:** [SciPy brentq](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.brentq.html)
+  solves the expectation equations defined in [Outcomes](outcomes.md#calibration-equations).
+- **Chance recovery:** [SciPy hypergeom](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.hypergeom.html)
+  supplies probabilities for sampling without replacement, used in matched recovery and its tests.
+- **Count dispersion:** [SciPy nbinom](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.nbinom.html)
+  supplies reference moments for the negative-binomial generator tests.
+- **Ranking and uncertainty:** [SciPy spearmanr](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.spearmanr.html)
+  compares rankings; [Student's t distribution](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.t.html)
+  supplies the critical value for replicate-mean intervals.
+- **Prediction:** [scikit-learn metrics](https://scikit-learn.org/stable/api/sklearn.metrics.html)
+  compute ROC AUC, average precision, log loss, R-squared and root mean squared error.
+- **Signal reconstruction:** scikit-learn's
+  [SimpleImputer](https://scikit-learn.org/stable/modules/generated/sklearn.impute.SimpleImputer.html)
+  and [LinearRegression](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html)
+  fit median imputation and ordinary least squares on development rows.
+- **Tutorial tuning:** scikit-learn's
+  [pipeline guidance](https://scikit-learn.org/stable/common_pitfalls.html#data-leakage)
+  explains why preprocessing is fitted within cross-validation folds.
+- **Reference effect estimates:** statsmodels
+  [GLM](https://www.statsmodels.org/stable/generated/statsmodels.genmod.generalized_linear_model.GLM.html),
+  [OLS](https://www.statsmodels.org/stable/generated/statsmodels.regression.linear_model.OLS.html),
+  [OrderedModel](https://www.statsmodels.org/stable/generated/statsmodels.miscmodels.ordinal_model.OrderedModel.html)
+  and [PHReg](https://www.statsmodels.org/stable/generated/statsmodels.duration.hazard_regression.PHReg.html)
+  provide the binomial, Poisson, linear, ordered-logistic and Cox fits in the
+  [validation example](validation.md).
