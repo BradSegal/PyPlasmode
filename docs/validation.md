@@ -1,12 +1,13 @@
 # Validation
 
 The validation example checks outcome calibration, effect estimation and feature recovery
-using synthetic data and known generating values. Install the optional estimators, download
+using synthetic data and known generating values. Install the optional estimators from
+[PyPI](https://pypi.org/project/pyplasmode/), download
 the [validation script](https://github.com/BradSegal/PyPlasmode/blob/main/examples/validation_vignette.py),
 and run it locally:
 
 ```bash
-python -m pip install "PyPlasmode[validation] @ git+https://github.com/BradSegal/PyPlasmode.git@v1.0.0"
+python -m pip install "pyplasmode[validation]"
 python validation_vignette.py --output validation-output
 ```
 
