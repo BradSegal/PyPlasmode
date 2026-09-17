@@ -1,4 +1,4 @@
-"""Truth-known plasmode generation and biomarker recovery evaluation."""
+"""Plasmode generation with known signals and feature-recovery evaluation."""
 
 from pyplasmode.data import (
     Population,

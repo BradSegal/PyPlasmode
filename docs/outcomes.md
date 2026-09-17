@@ -6,9 +6,9 @@ to one standard deviation of the complete generating signal.
 
 ## Shared example population
 
-The examples use a synthetic proteomic population and the same two contributing proteins.
-Run this setup once, then each family below. In an application, `Population` accepts your
-measured matrix and protein identifiers. All outputs contain one response per sampled row.
+The examples use four synthetic features, with A and B generating the signal. Run this
+setup once, then each outcome family below. For your own application, supply a numeric
+matrix and its feature names. Each generated outcome has one response per sampled row.
 
 ```python
 import numpy as np
@@ -57,7 +57,7 @@ print(round(float(continuous.values.mean()), 2), round(float(continuous.values.s
 ```
 
 The response has mean near 100 and standard deviation near 15, in the units of the
-clinical measurement. A one-standard-deviation increase in the signal raises its
+measurement. A one-standard-deviation increase in the signal raises its
 conditional mean by five units.
 
 ## Counts
@@ -68,11 +68,11 @@ average rate per unit exposure and a rate ratio per signal standard deviation. F
 unit on average, a 50% higher conditional rate per signal standard deviation, and extra
 variation beyond a Poisson model.
 
-The variance-to-mean ratio controls variation among participants with the same signal and
+The variance-to-mean ratio controls variation among observations with the same signal and
 exposure. If their expected count is 4, a ratio of 2 gives variance 8. A ratio of 1 gives the
 Poisson model, whose variance equals its mean. Ratios above 1 use the NB1 negative-binomial
 model: variance increases in direct proportion to the conditional mean. This differs from
-the pooled variance across people, which also reflects differences in their expected counts.
+the pooled variance across observations, which also reflects differences in their expected counts.
 For reproduction, the negative-binomial shape is `mu / (variance_to_mean - 1)` and its gamma
 mixing scale is `variance_to_mean - 1`.
 
@@ -107,12 +107,11 @@ print(ordinal.categories, np.bincount(ordinal.codes) / len(ordinal.codes))
 ```
 
 The output stores category names and integer codes 0, 1 and 2. Category proportions
-are close to the requested quarters/half/quarter, with larger signals favouring greater
-severity.
+are close to the requested quarters/half/quarter, with larger signals favouring higher categories.
 
 ## Time to event
 
-Specify event risks at clinically meaningful times rather than choosing distribution
+Specify event risks at times relevant to your application rather than choosing distribution
 parameters. For example, risks of 10% at five years and 25% at ten years allow the baseline
 event rate to change after year five. PyPlasmode uses a constant rate within each interval,
 giving a piecewise-exponential model that matches those cumulative risks.
@@ -138,9 +137,9 @@ print(round(float(survival.event.mean()), 3))
 # 0.235
 ```
 
-`time` contains follow-up in days and `event` indicates an observed diagnosis. The
+`time` contains follow-up in days and `event` indicates whether the event was observed. The
 observed event fraction is usually below the requested 25% ten-year latent event risk
-because some participants are censored before their event. Fit survival models to
+because some observations are censored before their event. Fit survival models to
 `time` and `event`; the returned latent event times are available for simulation checks.
 
 ## Calibration equations

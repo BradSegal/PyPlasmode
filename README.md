@@ -1,9 +1,13 @@
 # PyPlasmode
 
-PyPlasmode benchmarks the reliability of biomarker discovery. A model can predict disease
-accurately while selecting proteins that only track the underlying signal. To evaluate its
-explanations, you need a comparison in which the relevant features are known. PyPlasmode
-creates that comparison by generating outcomes from specified effects within your measurements.
+PyPlasmode tests prediction and feature selection against a known signal. It combines your
+feature data with simulated outcomes, so you can measure both how accurately a model predicts
+and how well it identifies the features used to generate those outcomes.
+
+Built for biomarker benchmarking, the library works with numeric tabular data more generally.
+Its inputs are a matrix of observations and named features, not a particular assay or dataset.
+A plasmode uses observed measurements to retain realistic feature relationships while you
+control the outcome-generating mechanism. Synthetic matrices work too, as in the examples below.
 
 Use it with your existing modelling workflow: generate a dataset, fit and tune your models,
 then evaluate their predictions, feature rankings or selected panels.
@@ -16,7 +20,7 @@ selected features against the signal that generated them.
 Explore the [visual gallery](docs/gallery.md) for signal patterns, correlated-feature recovery
 and the five outcome families.
 
-The [biomarker tutorial](docs/tutorial.md) follows a complete example from correlated
+The [feature-selection tutorial](docs/tutorial.md) follows a complete example from correlated
 measurements through model fitting, attribution and recovery above chance.
 
 ## Installation
@@ -44,7 +48,7 @@ import pyplasmode as ppm
 rng = np.random.default_rng(1)
 population = ppm.Population(
     rng.normal(size=(2_000, 100)),
-    tuple(f"protein_{index}" for index in range(100)),
+    tuple(f"feature_{index}" for index in range(100)),
 )
 
 partition = ppm.partition_population(
@@ -55,7 +59,7 @@ partition = ppm.partition_population(
 )
 samples = ppm.generate_partitioned(
     partition,
-    truth=ppm.SparseTruth(features=("protein_3", "protein_17", "protein_42")),
+    truth=ppm.SparseTruth(features=("feature_3", "feature_17", "feature_42")),
     outcome=ppm.BinaryOutcome(probability=0.15, odds_ratio=2.0),
     sample_sizes=ppm.PartitionSampleSizes(1_200, 400, 400),
     sampling_method="without_replacement",
@@ -77,10 +81,10 @@ print(prediction.value)
 ```
 
 Recall measures how many of the three generating features appear in the model's top ten;
-AUC measures prediction on held-out participants. Repeat the comparison with different seeds
+AUC measures prediction on held-out observations. Repeat the comparison with different seeds
 to estimate average performance and its Monte Carlo uncertainty.
 
-Source participants are split before resampling, keeping training, validation and test
+Source rows are split before resampling, keeping training, validation and test
 rows separate. This example uses a fixed model; the validation sample is available for
 hyperparameter tuning. See [Methods](docs/methods.md) for the generation process.
 

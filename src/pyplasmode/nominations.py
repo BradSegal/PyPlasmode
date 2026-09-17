@@ -1,4 +1,4 @@
-"""Support-aware nominations and truth-blind matched recovery."""
+"""Feature selections with tied scores and recovery against matched random selection."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ type RecoveryEstimand = Literal["exact", "group", "module", "interaction"]
 
 @dataclass(frozen=True, slots=True)
 class FractionalNomination:
-    """One tie-aware nomination over a declared positive-support universe."""
+    """A feature selection with fractional membership for tied positive scores."""
 
     feature_ids: tuple[str, ...]
     membership: NDArray[np.float64]
@@ -66,7 +66,7 @@ class FractionalNomination:
 
     @property
     def achieved_size(self) -> int:
-        """Return the number of proteins with positive fractional membership."""
+        """Return the number of features with non-zero selection membership."""
         return int(np.count_nonzero(self.membership > 0.0))
 
     @property
@@ -80,7 +80,7 @@ class FractionalNomination:
 
     @property
     def membership_budget(self) -> float:
-        """Return the realised protein-membership budget."""
+        """Return the sum of feature-selection membership probabilities."""
         return float(np.sum(self.membership))
 
 
@@ -90,15 +90,16 @@ def nomination_from_scores(
     *,
     depth: int,
 ) -> FractionalNomination:
-    """Construct a positive-support nomination with fractional boundary ties.
+    """Select leading positive scores, sharing remaining slots among tied features.
 
     Args:
         feature_ids: Unique feature identities aligned to scores.
         scores: Finite non-negative method-specific importance scores.
-        depth: Requested leading-list protein budget.
+        depth: Requested number of leading features.
 
     Returns:
-        Fractional nomination that conserves the budget when support permits.
+        Feature membership probabilities summing to the smaller of depth and
+        the number of positive scores. Zero-score features are not selected.
 
     Raises:
         ValueError: If identities, scores, or depth are invalid.
@@ -172,10 +173,10 @@ def evaluate_fractional_recovery(
     *,
     estimand: RecoveryEstimand,
 ) -> FractionalRecovery:
-    """Evaluate one mechanism-specific recovery without a composite score.
+    """Score a feature selection against the chosen recovery target.
 
     Args:
-        nomination: Tie- and support-aware protein membership.
+        nomination: Feature membership probabilities, including tied scores.
         truth: Materialized generating mechanism on the same feature universe.
         estimand: Exact, group, module, or interaction recovery definition.
 
@@ -456,18 +457,17 @@ def sample_matched_nominations(
     draws: int,
     seed: int,
 ) -> tuple[FractionalNomination, ...]:
-    """Draw truth-blind nominations with the observed support geometry.
+    """Randomise feature selections within strata while preserving counts and ties.
 
     Args:
-        nomination: Observed support- and tie-aware nomination.
-        strata: Outcome-blind geometry stratum for every feature.
-        draws: Positive number of independently sampled nominations.
+        nomination: Observed feature-selection memberships and positive scores.
+        strata: A group label per feature, defined without outcomes or generating truth.
+        draws: Positive number of independent random selections.
         seed: Non-negative random seed.
 
     Returns:
-        Matched nominations preserving positive-support size, membership
-        weights, realised cardinality, boundary ties, and stratum counts while
-        randomising identities over the complete eligible feature universe.
+        Selections with the same positive-score counts and membership weights
+        in each stratum, reassigned to randomly chosen feature identities.
 
     Raises:
         ValueError: If geometry, draw count, or seed is invalid.
@@ -494,17 +494,17 @@ def evaluate_matched_recovery(
     estimand: RecoveryEstimand,
     strata: tuple[str, ...],
 ) -> MatchedRecovery:
-    """Calibrate observed recovery against truth-blind matched nominations.
+    """Compare observed recovery with expected recovery under matched random selection.
 
     Args:
-        nomination: Observed support- and tie-aware nomination.
+        nomination: Observed feature-selection memberships and positive scores.
         truth: Materialized truth used only by the recovery evaluator.
         estimand: Mechanism-specific recovery definition.
-        strata: Outcome-blind geometry stratum for every feature.
+        strata: A group label per feature, defined without outcomes or generating truth.
 
     Returns:
-        Observed, expected, and chance-adjusted recovery under the analytic
-        matched assignment law.
+        Observed recovery, its analytically calculated random expectation,
+        and their difference.
 
     Raises:
         ValueError: If geometry or truth are invalid.
@@ -565,12 +565,12 @@ def evaluate_outcome_specificity(
     estimand: RecoveryEstimand,
     strata: tuple[str, ...],
 ) -> OutcomeSpecificity:
-    """Compare own-truth recovery with recovery of disjoint foreign truths.
+    """Compare recovery of the model's generating signal with other disjoint signals.
 
     Args:
-        nomination: Outcome-derived, tie-aware nomination to evaluate unchanged.
-        own_truth: Generating truth for the outcome used to obtain the nomination.
-        foreign_truths: Other truth identities of the same mechanism and size.
+        nomination: Feature selection to evaluate unchanged against each signal.
+        own_truth: Generating signal for the outcome used to fit the model.
+        foreign_truths: Other signals of the same mechanism and recovery-target count.
         estimand: Mechanism-specific exact, group, module, or interaction recovery.
         strata: Outcome-blind matching stratum for every feature.
 

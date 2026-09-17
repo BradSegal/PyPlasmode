@@ -33,7 +33,7 @@ from pyplasmode.truth import (
 
 @dataclass(frozen=True, slots=True)
 class Plasmode:
-    """An in-memory truth-known sample ready for a user-controlled modelling workflow."""
+    """A generated sample with its feature data, outcomes and known signal."""
 
     X: NDArray[np.float64]
     feature_ids: tuple[str, ...]
@@ -119,7 +119,7 @@ def generate(
     """Resample empirical rows, construct truth and generate a calibrated outcome.
 
     Args:
-        population: Source matrix of shape (participants, features).
+        population: Source matrix of shape (observations, features).
         truth: Mechanism defining latent signal and recovery targets.
         outcome: Observable outcome targets and effect per signal standard deviation.
         sample_size: Positive number of generated rows.
@@ -237,7 +237,7 @@ def generate_partitioned(
     sampling_method: SamplingMethod = "with_replacement",
     feature_sets: FeatureSets | None = None,
 ) -> PartitionedPlasmode:
-    """Generate source-disjoint roles under one shared outcome mechanism.
+    """Generate training, validation and test samples from separate source rows.
 
     Args:
         partition: Prior source partition from ``partition_population``.

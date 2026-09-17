@@ -9,9 +9,9 @@ approach and [Morris et al.](references.md) for organising simulation studies wi
 
 ![Observed measurements supply realistic features; a specified signal supplies the recovery target](assets/concepts/plasmode-workflow.png)
 
-Predictions are compared with the generated outcomes. Feature selections are compared with
-the proteins and relationships used to create the signal. Together, these measure the
-model's predictive accuracy and its ability to identify relevant features.
+In the biomarker example above, predictions are compared with the generated outcomes and
+selected features with the known signal. The same comparison applies to any numeric feature
+matrix: prediction accuracy and feature recovery measure different parts of the procedure.
 
 Generation has three steps:
 
@@ -22,7 +22,7 @@ Generation has three steps:
 3. Calibrate the outcome model to the requested marginal targets and draw the outcomes.
 
 You can then apply your usual preprocessing, model fitting, hyperparameter search and
-explanation tools. PyPlasmode's evaluators take the resulting predictions and nominations.
+explanation tools. PyPlasmode's evaluators take the resulting predictions and feature selections.
 
 ## Correlation and missingness
 
@@ -33,11 +33,15 @@ the association being studied.
 
 ## Training, validation and test samples
 
-`partition_population` splits source participants before resampling. `generate_partitioned`
-samples within those partitions and returns the original source-row indices. A participant
-can occur repeatedly within a partition when sampling with replacement, but cannot occur in
-both training and evaluation. Data-derived sparse features and correlated sentinels are
-selected using training source rows and reused in the other partitions.
+`partition_population` splits source rows before resampling. `generate_partitioned` samples
+within those partitions and returns the original row indices. A source row can occur
+repeatedly within a partition when sampling with replacement, but cannot occur in both
+training and evaluation. Automatic selection of sparse features or generating group members
+uses training source rows; the same features are then used in every partition.
+
+Each row is treated as a sampling unit. If several rows belong to one person or other
+cluster, arrange the split at that level before generation. Row-level splitting alone
+does not keep related observations together.
 
 The generated partitions share one signal scale and outcome calibration, computed over their
 combined covariates. This gives them the same generating mechanism. Model preprocessing is
@@ -53,13 +57,11 @@ Signal features need observed variation: constant or entirely missing columns ar
 from automatic selection and raise `ValueError` when explicitly selected.
 
 For an additive signal, each selected feature contributes its standardised value multiplied
-by a weight. Suppose proteins A and B have weights 2 and -1. A participant with values
+by a weight. Suppose features A and B have weights 2 and -1. An observation with values
 `A=1` and `B=0.5` has score `s = 2*1 - 0.5 = 1.5`. Increasing A raises the score;
 increasing B lowers it.
 
-Different truth specifications change how the terms are formed:
-
-For example, let A and A_proxy be closely correlated proteins. A sparse signal can depend
+Let A and A_proxy be closely correlated features. A sparse signal can depend
 on A alone. A correlated-group signal can use that same contributor while also recording
 A_proxy as an acceptable substitute for group recovery. A distributed signal instead uses
 both measurements, such as their average. The [tutorial](tutorial.md) constructs these
@@ -76,19 +78,23 @@ alternatives with the same population and compares their recovery targets.
 
 The completed score is standardised as `z = (s - mean(s)) / sd(s)` before generating the
 outcome. An odds ratio of 2 therefore means a doubling of the odds for a one-standard-deviation
-increase in the combined score. It does not double the odds for every protein independently.
+increase in the combined score, rather than in each feature separately.
 The [outcome guide](outcomes.md) explains how this score becomes an observed response.
 
 `SparseTruth(count=k)` uses a seeded greedy search with a maximum absolute pairwise Pearson
 correlation (default 0.7). Set this threshold for your design, or supply feature identities
-directly when the hypothesis concerns particular biomarkers.
+directly when the hypothesis concerns particular features.
 
 ## Numerical calibration and random variation
 
-SciPy's bracketed root finder solves the marginal expectation equations. Binary and ordinal
-intercepts use a `[-50, 50]` logit bracket; hazard calibration expands a non-negative bracket
-geometrically. A target outside the solver's range raises `CalibrationError`. The
-[outcome guide](outcomes.md) gives the equations for each family.
+Calibration matches the expected outcome across the sampled rows to your requested target.
+For example, a binary probability of 0.15 means an average event probability of 15%, not
+exactly 15% events in every draw. SciPy's bracketed root finder solves these expectation
+equations; the [outcome guide](outcomes.md#calibration-equations) gives them for each family.
+
+Binary and ordinal intercepts use a `[-50, 50]` logit bracket; hazard calibration expands
+a non-negative bracket geometrically. A target outside the solver's range raises
+`CalibrationError`.
 
 Sampled outcomes are checked against their expected summaries using six sampling standard
 errors, with a six-observation floor for probabilities. These diagnostic tolerances account

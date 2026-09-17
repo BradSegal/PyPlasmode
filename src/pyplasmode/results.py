@@ -1,4 +1,4 @@
-"""Typed aggregate results returned by biomarker evaluators."""
+"""Results returned by prediction, feature-recovery and stability evaluators."""
 
 from __future__ import annotations
 

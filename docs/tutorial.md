@@ -1,23 +1,25 @@
-# Benchmarking a protein ranking
+# Benchmarking feature selection
 
-Suppose you are choosing a method to identify proteins for biological follow-up. Its
-predictions look useful, but you do not know whether the highest-ranked proteins are the
-source of the signal or correlated alternatives. This tutorial creates an example in
-which that distinction can be measured, then fits and explains a logistic model.
+Suppose a model predicts well and ranks a few features highly. Are those the features
+that generated the outcome, or alternatives carrying similar information? This tutorial
+builds a dataset where the answer is known, fits a logistic model and measures both its
+prediction accuracy and its feature recovery.
 
-The measurements below are synthetic, so the example runs without participant data.
-For your own study, replace the matrix and column names with your measured proteome.
-Install `PyPlasmode`; NumPy and scikit-learn are included as dependencies. Run the
-following blocks in order.
+The measurements are synthetic. For your own study, supply a numeric matrix with one
+observation per row and one feature per column, together with unique column names.
+Those features can be biomarkers or other measured variables. Install
+[PyPlasmode](https://pypi.org/project/pyplasmode/); NumPy and scikit-learn are included.
+Run the following blocks in order.
 
 ## Create correlated measurements
 
-Two protein pairs share information; four other proteins vary independently. These
+Two feature pairs share information; four other features vary independently. These
 relationships are defined before any outcome is generated.
 
 ```python
 import numpy as np
-from sklearn.linear_model import LogisticRegressionCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 import pyplasmode as ppm
@@ -38,12 +40,12 @@ print(groups.align(population).mapped)
 # ('A', 'A_proxy', 'B', 'B_proxy')
 ```
 
-## Generate an outcome with known contributors
+## Generate an outcome from known features
 
-Only A and B generate the outcome. Their proxies can carry information about it, but
-do not enter the generating score. The API calls these contributing members *sentinels*.
-A 15% event probability and an odds ratio of two per standard deviation of the combined
-signal specify the outcome in interpretable units.
+Only A and B enter the generating score. A_proxy and B_proxy are correlated alternatives:
+they can help predict the outcome without contributing to its construction. The API calls
+the generating member of each group a *sentinel*. Here, the outcome has a 15% marginal
+probability, and its odds double for each standard-deviation increase in the combined signal.
 
 ```python
 partition = ppm.partition_population(
@@ -65,21 +67,27 @@ print(train.truth.direct_features)
 
 ## Fit, tune and explain the model
 
-Model fitting remains in scikit-learn. Cross-validation selects regularisation within
-training data, and the test participants are used only for evaluation. Absolute
-standardised coefficients rank the proteins for this linear model; another model can
-supply its own attribution scores to the same recovery functions.
+Five-fold cross-validation selects the regularisation strength using the training sample.
+The [scaler is fitted within each fold](https://scikit-learn.org/stable/common_pitfalls.html#data-leakage),
+then the chosen pipeline is refitted on all training
+rows. The test sample is used only for evaluation. The separate validation sample is unused
+here because tuning uses cross-validation.
+
+Absolute coefficients rank features by their fitted effect per training standard deviation.
+For another model, use its own importance scores with the same recovery functions.
 
 ```python
-model = make_pipeline(
-    StandardScaler(),
-    LogisticRegressionCV(Cs=5, cv=5, scoring="roc_auc", max_iter=1_000),
+model = GridSearchCV(
+    make_pipeline(StandardScaler(), LogisticRegression(max_iter=1_000)),
+    param_grid={"logisticregression__C": np.logspace(-4, 4, 5)},
+    cv=5,
+    scoring="roc_auc",
 )
 model.fit(train.X, train.outcome.values)
 prediction = ppm.evaluate_prediction(
     test.outcome.values, model.predict_proba(test.X)[:, 1], metric="roc_auc"
 )
-scores = np.abs(model[-1].coef_[0])
+scores = np.abs(model.best_estimator_[-1].coef_[0])
 ranking = tuple(names[i] for i in np.argsort(-scores))
 exact = ppm.evaluate_ranking(ranking, train.truth, depths=(2,)).at_depth[0]
 group = ppm.evaluate_groups(ranking, train.truth, depths=(2,)).at_depth[0]
@@ -87,20 +95,19 @@ print(prediction)
 print(ranking[:2], exact, group)
 ```
 
-In this seeded example, test AUC is 0.686 and the top two proteins are B and A.
-Recall, precision and group recovery are all 1.0. The example is deliberately small;
-these values demonstrate the workflow rather than estimate performance in a real cohort.
-
-The prediction result reports held-out ROC AUC. The recovery results report how many
-of A and B were selected and how many of their groups were represented. For example,
-selecting A and B_proxy recovers one of two contributors but both groups. AUC measures
-prediction on people; recall and precision measure identification of proteins.
+The prediction result reports test-set ROC AUC, which measures how well the model ranks
+positive outcomes above negative ones. The recovery results answer a different question:
+did the highest-ranked features include A and B? Recall is the fraction of generating
+features found; precision is the fraction of selected features that generated the signal.
+Selecting A and B gives both scores 1.0. Selecting A and B_proxy gives both scores 0.5,
+but still recovers both groups.
 
 ## Compare with matched chance
 
-A random list has some chance of selecting a contributor. Here the measured pairs and
-singletons form two strata. The reference keeps the selected count in each stratum,
-then redistributes those selections among its members.
+A random list can recover a generating feature by chance. To make a fair comparison,
+keep the number of selections from correlated pairs and independent features the same.
+These two categories form the *strata* for the random reference. Within each stratum,
+feature identities are treated as exchangeable.
 
 ```python
 nomination = ppm.nomination_from_scores(names, scores, depth=2)
@@ -109,15 +116,15 @@ matched = ppm.evaluate_matched_recovery(nomination, train.truth, estimand="exact
 print(matched.observed_recovery, matched.expected_recovery, matched.chance_adjusted_recovery)
 ```
 
-If both selections come from the four paired proteins, random assignment recovers half
-the two contributors on average. Finding both gives recovery 1.0, expected recovery
+If both selections come from the four paired features, random assignment recovers half
+the two generating features on average. Finding both gives recovery 1.0, expected recovery
 0.5 and an excess of 0.5. Finding just A and B_proxy gives exact recovery 0.5 and zero
-excess under this reference. Matching makes the comparison respect the types of proteins
-selected rather than rewarding selection from an easier group.
+excess under this reference. This asks whether the method identifies A and B better than
+random selection within the same types of features.
 
-## Change the biological hypothesis
+## Change the generating mechanism
 
-The same measurements can test an outcome driven by individual proteins or by a shared
+The same measurements can test an outcome driven by individual features or by a shared
 group signal. A sparse specification uses A and B directly. A group-mean specification
 uses both members of each pair, so recovery concerns the group and its combined weight.
 
@@ -137,4 +144,5 @@ An empty `direct_features` tuple in the group-mean case denotes a distributed re
 target. Use `evaluate_groups` or `evaluate_module` for that hypothesis. Repeat the
 comparison over independent outcome draws, include a null signal and stronger effects,
 and report the resulting distribution of prediction, precision and recovery. The
-[outcome examples](outcomes.md) show how to extend this design to other clinical responses.
+[outcome examples](outcomes.md) extend this design to continuous responses, counts,
+ordered categories and time-to-event data.

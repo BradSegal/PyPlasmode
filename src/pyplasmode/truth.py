@@ -93,7 +93,7 @@ class MaterializedTruth:
 
 @dataclass(frozen=True, slots=True)
 class NullTruth:
-    """A truth with no biomarker contribution."""
+    """An outcome-generating mechanism independent of the features."""
 
 
 @dataclass(frozen=True, slots=True)

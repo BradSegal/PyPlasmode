@@ -1,13 +1,14 @@
 # Feature structures and extensions
 
-`FeatureSets` holds named memberships such as correlation groups, complexes or pathways.
-`FeatureGraph` holds nodes and weighted, undirected edges. You can create either from your
-own analysis or an external annotation resource.
+`FeatureSets` holds named groups of features, and `FeatureGraph` connects features through
+weighted, undirected edges. Groups can represent correlated measurements or biological
+pathways; a graph can represent a similarity or interaction network. Supply the memberships
+and edges from your own analysis or an external resource.
 
 Call `align(population)` to inspect which feature identities match the population and which
 are missing from either side before using the structure for generation or evaluation.
 
-For example, suppose an external pathway lists A, B and G, but the proteomic panel measures
+As a biological example, suppose a pathway lists A, B and G, but your dataset contains
 A, B and C. All structure types are imported from the public `pyplasmode` namespace:
 
 ```python

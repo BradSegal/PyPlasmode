@@ -1,4 +1,4 @@
-"""Pure biomarker recovery, prediction and stability evaluation."""
+"""Feature recovery, prediction and ranking stability evaluation."""
 
 from __future__ import annotations
 
