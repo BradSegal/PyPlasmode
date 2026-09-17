@@ -21,17 +21,17 @@ measurements through model fitting, attribution and recovery above chance.
 
 ## Installation
 
-Requires Python 3.12-3.14. Install from GitHub:
+Requires Python 3.12-3.14. Install from [PyPI](https://pypi.org/project/pyplasmode/):
 
 ```bash
-python -m pip install "git+https://github.com/BradSegal/PyPlasmode.git@v1.0.0"
+python -m pip install pyplasmode
 ```
 
 The runtime dependencies are NumPy, SciPy and scikit-learn. To include the reference
 validation and survival examples, install the validation extra:
 
 ```bash
-python -m pip install "PyPlasmode[validation] @ git+https://github.com/BradSegal/PyPlasmode.git@v1.0.0"
+python -m pip install "pyplasmode[validation]"
 ```
 
 ## Ten-minute example

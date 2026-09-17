@@ -14,10 +14,11 @@ compare recovery with a reference matched for correlated groups.
 
 ## Install and run
 
-Install with Python 3.12-3.14:
+Install from [PyPI](https://pypi.org/project/pyplasmode/) with Python 3.12-3.14.
+The validation extra includes the optional dependencies used by the examples:
 
 ```bash
-python -m pip install "PyPlasmode[validation] @ git+https://github.com/BradSegal/PyPlasmode.git@v1.0.0"
+python -m pip install "pyplasmode[validation]"
 ```
 
 Start with the [quickstart](https://github.com/BradSegal/PyPlasmode/blob/main/examples/quickstart.py),

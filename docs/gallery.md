@@ -68,11 +68,11 @@ Change these settings in native outcome units to represent your application. The
 
 ## Generate the source tables
 
-Install PyPlasmode and download the
+Install PyPlasmode from [PyPI](https://pypi.org/project/pyplasmode/) and download the
 [gallery example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/pattern_gallery.py):
 
 ```bash
-python -m pip install "git+https://github.com/BradSegal/PyPlasmode.git@v1.0.0"
+python -m pip install pyplasmode
 python pattern_gallery.py --output gallery-data
 ```
 
