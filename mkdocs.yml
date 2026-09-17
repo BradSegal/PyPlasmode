@@ -1,11 +1,11 @@
 site_name: PyPlasmode
 site_url: https://bradsegal.github.io/PyPlasmode/
-site_description: Simulate biomarker signals and evaluate prediction and feature recovery
+site_description: Simulate outcomes from your feature data and evaluate prediction and feature selection
 repo_url: https://github.com/BradSegal/PyPlasmode
 theme: readthedocs
 nav:
   - Getting started: index.md
-  - Biomarker tutorial: tutorial.md
+  - Feature-selection tutorial: tutorial.md
   - Visual gallery: gallery.md
   - Methods: methods.md
   - Generating signals: truths.md

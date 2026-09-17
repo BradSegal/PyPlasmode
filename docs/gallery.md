@@ -1,6 +1,6 @@
 # Visual gallery
 
-Explore how generating signals, feature relationships and outcome models shape a biomarker
+Explore how generating signals, feature relationships and outcome models shape a feature-selection
 benchmark. These examples use synthetic inputs and PyPlasmode's public generation and
 evaluation functions.
 
@@ -25,7 +25,7 @@ method should detect. See [Generating signals](truths.md).
 
 ![A correlation matrix beside exact-feature and group-recovery curves for two example rankings](assets/patterns/correlated-recovery.svg)
 
-**a**, Pearson correlations among six features from 1,000 synthetic participants. P1 generates
+**a**, Pearson correlations among six features from 1,000 synthetic observations. P1 generates
 the signal; P2 and P3 are correlated substitutes in the same group. **b**, exact-feature
 recall and **c**, group recall for two example orders:
 
@@ -45,11 +45,11 @@ discovery in your experiment. The curves are calculated with `evaluate_ranking` 
 
 ![Conditional response curves for binary, continuous, count, ordinal and survival outcomes](assets/patterns/outcome-families.svg)
 
-The curves show the generating functions after calibration on 2,000 synthetic participants:
+The curves show the generating functions after calibration on 2,000 synthetic observations:
 **a**, binary event probability; **b**, a continuous outcome's mean; **c**, expected counts;
 **d**, probabilities of three ordered categories; and **e**, event-free probabilities at
 signal values of -1, 0 and +1 standard deviations. Survival curves show event risk before
-censoring. Each curve shows the relationship specified for generating the data.
+censoring.
 
 | Outcome | Example settings |
 | --- | --- |

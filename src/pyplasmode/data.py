@@ -34,7 +34,7 @@ def _readonly_indices(values: NDArray[np.int64]) -> NDArray[np.int64]:
 
 @dataclass(frozen=True, slots=True)
 class Population:
-    """An empirical biomarker matrix with stable ordered feature identities.
+    """A numeric feature matrix with stable ordered column identities.
 
     Missing values are retained. Infinite values, duplicate identities and shape mismatches
     are rejected.
@@ -59,7 +59,7 @@ class Population:
 
     @property
     def feature_count(self) -> int:
-        """Return the number of biomarker columns."""
+        """Return the number of feature columns."""
         return int(self.X.shape[1])
 
 
@@ -195,7 +195,7 @@ def sample_population(
     """Sample complete empirical rows under an explicit replacement policy.
 
     Args:
-        population: Empirical biomarker population.
+        population: Source feature matrix and column identities.
         sample_size: Number of rows to return.
         rng: NumPy random generator controlling row selection.
         method: Sampling with replacement or sampling without replacement.

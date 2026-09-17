@@ -21,7 +21,7 @@ The reference run separates three possible failures: generating the wrong outcom
 scoring a ranking incorrectly, and finding apparent structure when no signal is present.
 
 1. **Create a population.** Generate 20,000 rows and 100 independent Gaussian features.
-   These exchangeable features provide a simple reference in which no protein has an
+   These exchangeable features provide a simple reference in which no feature has an
    intrinsic selection advantage.
 2. **Add a known effect.** Standardise one feature and generate binary, continuous, count,
    ordinal and survival outcomes from it. The requested effects are known before fitting.
@@ -41,7 +41,7 @@ scoring a ranking incorrectly, and finding apparent structure when no signal is 
 The figure and tables report these distinct checks, rather than combining them into one
 validation score.
 
-![Independent estimator effects and null nomination recurrence](assets/validation/validation.svg)
+![Effect estimates from independent implementations and feature-selection frequency under the null](assets/validation/validation.svg)
 
 Blue points and 95% intervals show the difference between the statsmodels estimate and
 the generating coefficient for each outcome family. Zero denotes exact agreement; ratios
@@ -69,17 +69,18 @@ generation and evaluation across outcome families, including null signals and mi
 
 | Component | Reference calculation | Additional cases |
 | --- | --- | --- |
-| Complete-row sampling | Source-row identity and empirical covariance | Replacement limits and separation of source participants |
+| Complete-row sampling | Source-row identity and empirical covariance | Replacement limits and separation of source rows |
 | Truth construction | Linear algebra for sparse, sentinel and distributed signals | Missing or constant features and invalid specifications |
 | Binary and survival effects | statsmodels Logit and PHReg | Infeasible probabilities and invalid cumulative risks |
 | Continuous, ordinal and count effects | statsmodels estimators and marginal moments | Null signals, categories and varying exposures |
 | NB1 dispersion | SciPy negative-binomial moments | Conditional residual variance with heterogeneous means |
-| Exact recovery | Hand counts and SciPy hypergeometric expectations | Agreement between rankings and fractional nominations |
+| Exact recovery | Hand counts and SciPy hypergeometric expectations | Agreement between rankings and tied-score selections |
 | Fractional group and interaction recovery | Combinatorial and sampled references | Ties, zero scores and invariant references |
 | Stability and reconstruction | Prefix-overlap formula and standard regression | Small samples and constant targets |
 
 Matched recovery tests compare analytic expectations with hypergeometric and sampled
-references. Specificity tests compare a nomination against disjoint own and foreign truths.
+references. Outcome-specificity tests compare a selection against different, disjoint signals.
 Together, these exercise both known positive recovery and its chance reference.
 
-Run the tests with `pytest` after following the development setup in `CONTRIBUTING.md`.
+Run the tests with `pytest` after following the
+[development setup](https://github.com/BradSegal/PyPlasmode/blob/main/CONTRIBUTING.md).

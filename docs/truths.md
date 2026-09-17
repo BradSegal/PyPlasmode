@@ -1,7 +1,8 @@
 # Generating signals
 
-A truth specification defines how features contribute to the outcome and what counts as
-recovery. Choose the form that matches the mechanism you want to study.
+A *truth specification* describes the signal to generate and the features or groups a
+selection procedure should recover. Choose the form that matches the mechanism you want
+to study, then pair it with an [outcome model](outcomes.md).
 
 ![Five signal forms and their corresponding recovery targets](assets/concepts/signal-recovery.png)
 
@@ -16,7 +17,8 @@ the same correlated measurements and shows the corresponding evaluations.
 ## Null
 
 `NullTruth()` generates outcomes independently of the features. Use it to measure how often
-a procedure nominates features when no association has been added.
+a procedure selects features when no association has been added. Record the number selected
+and their recurrence across runs; exact recall is undefined when there are no generating features.
 
 ## Sparse
 
@@ -56,7 +58,7 @@ A `CustomTruth` function receives the resampled matrix, feature identities and a
 NumPy generator. Return a `CustomSignal` containing the signal, a description and its exact,
 group, weighted or graph recovery targets. The
 [custom-signal example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/custom_signal.py)
-uses a saturating relationship: increasing a protein changes the signal strongly near its
+uses a saturating relationship: increasing a feature changes the signal strongly near its
 centre, but the effect flattens towards a plateau at high or low measurements. This tests a
 nonlinear response without assuming that every further increase has the same effect.
 

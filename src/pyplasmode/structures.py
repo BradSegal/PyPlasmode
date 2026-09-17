@@ -1,4 +1,4 @@
-"""Resource-agnostic biomarker sets, graphs and alignment."""
+"""Feature sets, graphs and alignment to measured columns."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ class StructureAlignment:
 
 @dataclass(frozen=True, slots=True)
 class FeatureSet:
-    """One named biomarker membership set."""
+    """One named set of features."""
 
     name: str
     members: tuple[str, ...]
@@ -36,7 +36,7 @@ class FeatureSet:
 
 @dataclass(frozen=True, slots=True)
 class FeatureSets:
-    """An ordered collection of named biomarker membership sets."""
+    """An ordered collection of named feature sets."""
 
     sets: tuple[FeatureSet, ...]
 
@@ -69,7 +69,7 @@ class FeatureSets:
 
 @dataclass(frozen=True, slots=True)
 class FeatureEdge:
-    """One finite non-negative undirected biomarker edge."""
+    """An undirected feature connection with a finite, non-negative weight."""
 
     source: str
     target: str
@@ -84,7 +84,7 @@ class FeatureEdge:
 
 @dataclass(frozen=True, slots=True)
 class FeatureGraph:
-    """A weighted undirected graph over explicit biomarker identities."""
+    """A weighted undirected graph over named features."""
 
     nodes: tuple[str, ...]
     edges: tuple[FeatureEdge, ...]

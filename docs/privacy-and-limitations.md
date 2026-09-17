@@ -13,10 +13,14 @@ to construct the generating signal, so your modelling workflow can apply its own
 Signal features need observed variation; constant or entirely missing columns remain in `X`
 but cannot generate a non-null signal.
 
-## Simulation scope
+## Data and outcome scope
+
+`Population` accepts a numeric matrix with one sampling unit per row and one named feature
+per column. It can contain measured or synthetic data. Encode non-numeric variables before
+passing them to the library, and choose a signal appropriate to that encoding.
 
 PyPlasmode evaluates procedures under a chosen feature distribution, generating signal and
 outcome model. Use these choices to represent the application you want to study. The built-in
 outcomes cover binary, continuous, count and ordinal responses, plus single-event survival
 with independent censoring. Competing risks, recurrent events, longitudinal outcomes,
-informative censoring and causal interventions are not implemented in version 0.1.
+informative censoring and causal interventions require a different outcome generator.

@@ -1,14 +1,15 @@
 # Evaluation
 
 Choose an evaluator for the question you want to answer. Prediction metrics describe the
-model's accuracy; recovery metrics compare its nominations with the generating signal.
+model's accuracy; recovery metrics compare its selected features with the known signal.
+Compute each method's results on the same simulated data to make the comparison paired.
 
 | Question | Function |
 | --- | --- |
 | Which generating features were found? | `evaluate_ranking` |
-| Were their correlated substitutes found? | `evaluate_groups` |
+| Was at least one member of each relevant group found? | `evaluate_groups` |
 | How much generating weight does the panel cover? | `evaluate_module` |
-| Which region nodes and edges were recovered? | `evaluate_graph_region` |
+| Which nodes and edges of a specified graph region were recovered? | `evaluate_graph_region` |
 | Can the panel reconstruct the signal? | `evaluate_signal_reconstruction` |
 | How accurate are the predictions? | `evaluate_prediction` |
 | How does a smaller panel compare with a reference model? | `evaluate_panel` |
@@ -20,7 +21,9 @@ model's accuracy; recovery metrics compare its nominations with the generating s
 Ranking evaluators accept a complete ordered tuple containing every feature once. Resolve
 score ties using your chosen ordering rule before supplying this tuple.
 
-Alternatively, pass non-negative importance scores to `nomination_from_scores`. It selects
+Alternatively, pass non-negative importance scores to `nomination_from_scores`. A
+*nomination* is the API's representation of a feature selection, including partial membership
+when scores tie. The function selects
 the leading positive scores and shares any remaining slots equally among features tied at
 the cutoff. For example, two features tied for one slot each receive membership 0.5.
 Zero scores are excluded, so a model with fewer positive scores than the requested depth
@@ -52,10 +55,10 @@ print(result.at_depth[0].recall)  # 0.5
 print(result.at_depth[0].precision)  # 0.5
 ```
 
-Now suppose A carries nine times B's generating weight. The same selection recovers half
+In this example A carries nine times B's generating weight. The same selection recovers half
 the contributors but 90% of their absolute weight. If C is an admissible substitute for B,
 the selection also recovers both groups. Exact recovery counts contributors, weighted
-recovery accounts for their effect sizes, and group recovery credits the specified substitutes.
+recovery accounts for their specified weights, and group recovery credits the specified substitutes.
 
 | Question | Example | Score |
 | --- | --- | --- |
@@ -72,26 +75,26 @@ probability 0.5. The equations below implement these probabilities without break
 arbitrarily. The [worked recovery script](https://github.com/BradSegal/PyPlasmode/blob/main/examples/recovery.py)
 reproduces the exact, weighted and group examples.
 
-Let `S_k` be a nominated set of size `k`, `T` the exact generating support, and `U` the
-feature universe. Exact recall is `|S_k intersect T| / |T|`; precision is
+Let `S_k` be a selected set of size `k`, `T` the set of features used directly in the signal,
+and `U` the set of all features. Exact recall is `|S_k intersect T| / |T|`; precision is
 `|S_k intersect T| / k`; false-discovery fraction is `1 - precision`. All three use the
 specified simulation truth. Exact recall requires a non-empty set of exact generating
 features; use group or weighted recovery for distributed signals.
 
-For fractional nomination membership `m_j`, exact recall is `sum(j in T, m_j) / |T|`.
+For selection membership `m_j`, exact recall is `sum(j in T, m_j) / |T|`.
 For generating weights `w_j`, weighted coverage is
-`sum(j, |w_j| m_j) / sum(j, |w_j|)`. A two-protein truth with weights `(9, 1)` therefore
-has recall 0.5 and weighted coverage 0.9 when only its first protein is nominated.
+`sum(j, |w_j| m_j) / sum(j, |w_j|)`. A two-feature signal with weights `(9, 1)` therefore
+has recall 0.5 and weighted coverage 0.9 when only its first feature is selected.
 
 For group `G`, group recovery is the probability of selecting at least one member.
-At a tied boundary with `b` proteins and `r` remaining slots, if `t` group members are tied
+At a tied boundary with `b` features and `r` remaining slots, if `t` group members are tied
 and no member is already selected, recovery is `1 - choose(b-t, r) / choose(b, r)`.
-Interaction recovery instead requires both generating proteins. If both are tied it is
+Interaction recovery instead requires both generating features. If both are tied it is
 `choose(b-2, r-2) / choose(b, r)`, zero when fewer than two slots remain.
 
-`achieved_size` counts all identities with non-zero membership, including every boundary-tied
-identity. It can exceed the requested depth. `membership_budget` is the sum of membership
-probabilities and cannot exceed that depth.
+`achieved_size` counts all features with non-zero membership, including every feature tied
+at the cutoff, so it can exceed the requested depth. `membership_budget` is the sum of
+membership probabilities and cannot exceed that depth.
 
 ## Matched chance recovery
 
@@ -107,11 +110,11 @@ without using the generating truth or evaluation outcomes. The reference retains
 of positive scores in each stratum and the selection's membership weights, while reassigning
 them to feature identities within that stratum.
 
-For example, a proteomic panel may contain strongly correlated pairs and isolated proteins.
-Label each member of a pair `pair` and each isolated protein `singleton`, using the
+For example, a dataset may contain strongly correlated pairs and independent features.
+Label each member of a pair `pair` and each independent feature `singleton`, using the
 measurements before generating outcomes. Matching within these strata compares a method
 with random lists containing the same number of paired and isolated measurements.
-The [biomarker tutorial](tutorial.md#compare-with-matched-chance) gives executable code
+The [tutorial](tutorial.md#compare-with-matched-chance) gives executable code
 and interprets the resulting observed, expected and excess recovery.
 
 The returned chance-adjusted recovery is `observed - expected`. For exact recall, expected
@@ -121,19 +124,24 @@ possible, observed and expected recovery coincide and the adjusted value is zero
 
 ### Outcome specificity
 
-`evaluate_outcome_specificity` scores the same nomination against its own generating truth
-and other, foreign truths. This measures whether the selection recovers the particular
-outcome signal more strongly than unrelated generating signals.
+`evaluate_outcome_specificity` compares a selection's recovery of the signal used to fit
+the model with its recovery of other specified signals. In this API, *specificity* means
+preference for one generating signal over others, not the true-negative rate of a classifier.
 
-Own-versus-foreign specificity requires disjoint supports and equal numbers of recovery targets
-under the same mechanism: groups for group recovery, features otherwise. Group membership
+The compared signals require disjoint recovery targets and equal numbers of targets under
+the same mechanism: groups for group recovery, features otherwise. Group membership
 sizes may differ; the matched-reference expectation accounts for those sizes.
-Specificity is own chance-adjusted recovery minus mean foreign chance-adjusted recovery.
+Specificity is chance-adjusted recovery for the model's signal minus the mean for the other signals.
 As a difference between adjusted scores, it can exceed one in magnitude.
 
 ## Ranking stability
 
-Leading-set Jaccard is `|A_k intersect B_k| / |A_k union B_k|`. The expected random
+`rank_stability` compares two complete rankings. Jaccard overlap asks whether their leading
+sets contain the same features. Spearman correlation compares ordering across the whole
+list. Rank-biased overlap gives more weight to agreement near the top.
+
+For leading sets `A_k` and `B_k` of size `k`, Jaccard is
+`|A_k intersect B_k| / |A_k union B_k|`. The expected random
 intersection is `k^2 / |U|`. Spearman correlation uses the complete rankings and requires
 at least two features. Extrapolated rank-biased overlap is
 `(1-p) sum(d=1..D, p^(d-1) A_d) + p^D A_D`, where `A_d` is prefix overlap divided by `d`.
@@ -159,7 +167,7 @@ and root mean squared error.
 A selected substitute may predict the generating score well even when the exact contributor
 is absent. Reconstruction tests that possibility by learning a linear mapping from the panel
 to the known score. An out-of-sample R-squared of 0.4 means the panel explains 40% of its
-variation in the test sample. It does not mean that 40% of the generating proteins were found.
+variation in the test sample, rather than finding 40% of the generating features.
 
 `evaluate_signal_reconstruction` fits median imputation and ordinary least squares on
 development rows, then measures linear reconstruction of the known signal on evaluation

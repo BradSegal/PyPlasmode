@@ -1,4 +1,4 @@
-"""Run the documented sparse-biomarker quickstart."""
+"""Run the documented feature-selection quickstart."""
 
 import json
 from dataclasses import asdict
@@ -13,14 +13,14 @@ def main() -> None:
     """Generate, fit and evaluate one fully synthetic example."""
     rng = np.random.default_rng(1)
     population = ppm.Population(
-        rng.normal(size=(2_000, 100)), tuple(f"protein_{index}" for index in range(100))
+        rng.normal(size=(2_000, 100)), tuple(f"feature_{index}" for index in range(100))
     )
     partition = ppm.partition_population(
         population, training_fraction=0.6, validation_fraction=0.2, seed=7
     )
     samples = ppm.generate_partitioned(
         partition,
-        truth=ppm.SparseTruth(features=("protein_3", "protein_17", "protein_42")),
+        truth=ppm.SparseTruth(features=("feature_3", "feature_17", "feature_42")),
         outcome=ppm.BinaryOutcome(probability=0.15, odds_ratio=2.0),
         sample_sizes=ppm.PartitionSampleSizes(1_200, 400, 400),
         seed=42,
