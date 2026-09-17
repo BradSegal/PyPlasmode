@@ -46,3 +46,9 @@ Record random seeds and dependency versions when sharing reproducible analyses.
 The CI matrix covers minimum numerical dependencies on Python 3.12 and current dependencies
 on supported Python versions, with Linux, Windows and macOS jobs. Test dependency changes
 against this matrix. Build release artifacts from the tagged version after CI passes.
+
+Attach the checked wheel and source distribution to a draft GitHub release, then publish
+the release. The `publish.yml` workflow validates those distributions and uploads them to
+PyPI through the `pypi` trusted-publishing environment. For an existing release, run
+`gh workflow run publish.yml --ref main -f tag=v1.0.0` with its tag. No PyPI API token is
+required, and already-published versions must not be replaced.
