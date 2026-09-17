@@ -146,7 +146,8 @@ intersection is `k^2 / |U|`. Spearman correlation uses the complete rankings and
 at least two features. Extrapolated rank-biased overlap is
 `(1-p) sum(d=1..D, p^(d-1) A_d) + p^D A_D`, where `A_d` is prefix overlap divided by `d`.
 The persistence parameter sets how strongly leading ranks are weighted. Its default `p=0.9`
-gives geometric expected inspection depth 10. See [Webber et al.](references.md).
+gives geometric expected inspection depth 10. This is the extrapolated score in
+[Webber et al., Equation 23](references.md#ranking-comparison).
 
 ## Prediction and panels
 
@@ -182,3 +183,6 @@ error is `sd(estimates)/sqrt(R)` and the interval is the mean plus/minus
 `t_(R-1,0.975)` times that standard error. These describe precision across simulations of
 the same design. Supply the number of failed runs through `failure_count` so they remain
 part of the summary.
+
+[Morris et al., Section 5.2](references.md#simulation-studies) explains why Monte Carlo
+uncertainty should accompany simulation results.

@@ -13,7 +13,7 @@ python validation_vignette.py --output validation-output
 
 The output includes CSV summaries, a PDF/SVG figure and a JSON description of the simulation
 design following ADEMP: aims, data-generating mechanisms, estimands, methods and performance
-measures. See [Morris et al.](references.md) for the framework.
+measures. See [Morris et al.](references.md#simulation-studies) for the framework.
 
 ## Reference run
 

@@ -4,8 +4,10 @@
 
 A plasmode combines empirical feature data with a known outcome-generating mechanism.
 This lets you measure whether a method predicts the outcome and whether it recovers the
-features responsible for that outcome. See [Gadbury et al.](references.md) for the plasmode
-approach and [Morris et al.](references.md) for organising simulation studies with the ADEMP framework.
+features responsible for that outcome. [Gadbury et al.](references.md#plasmode-simulation)
+illustrate the plasmode approach; [Schreck et al.](references.md#plasmode-simulation) describe
+the combination of covariate resampling and outcome generation used here. For organising
+the comparison, [Morris et al.](references.md#simulation-studies) introduce the ADEMP framework.
 
 ![Observed measurements supply realistic features; a specified signal supplies the recovery target](assets/concepts/plasmode-workflow.png)
 
