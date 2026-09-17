@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use PyPlasmode in your research, please cite this software using the metadata below."
+title: "PyPlasmode"
+type: software
+version: 1.0.0
+repository-code: "https://github.com/BradSegal/PyPlasmode"
+license: BSD-3-Clause
+authors:
+  - family-names: Segal
+    given-names: Bradley
+  - family-names: Fieggen
+    given-names: Joshua
+  - family-names: Simond
+    given-names: Greg
+  - family-names: Belgrave
+    given-names: Danielle
+  - family-names: Clifton
+    given-names: David
+  - family-names: Clifton
+    given-names: Lei
