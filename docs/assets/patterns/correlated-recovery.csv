@@ -1,0 +1,25 @@
+panel,order,depth,recovery
+b,Generator first,1,1.0
+c,Generator first,1,1.0
+b,Generator first,2,1.0
+c,Generator first,2,1.0
+b,Generator first,3,1.0
+c,Generator first,3,1.0
+b,Generator first,4,1.0
+c,Generator first,4,1.0
+b,Generator first,5,1.0
+c,Generator first,5,1.0
+b,Generator first,6,1.0
+c,Generator first,6,1.0
+b,Substitute first,1,0.0
+c,Substitute first,1,1.0
+b,Substitute first,2,0.0
+c,Substitute first,2,1.0
+b,Substitute first,3,0.0
+c,Substitute first,3,1.0
+b,Substitute first,4,0.0
+c,Substitute first,4,1.0
+b,Substitute first,5,0.0
+c,Substitute first,5,1.0
+b,Substitute first,6,1.0
+c,Substitute first,6,1.0

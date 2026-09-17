@@ -1,0 +1,113 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyplasmode"
+version = "1.0.0"
+description = "Simulate biomarker signals and evaluate prediction and feature recovery."
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+dependencies = [
+  "numpy>=2.0,<3",
+  "scikit-learn>=1.6,<2",
+  "scipy>=1.14,<2",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+[project.urls]
+Repository = "https://github.com/BradSegal/PyPlasmode"
+Documentation = "https://github.com/BradSegal/PyPlasmode/tree/main/docs"
+Issues = "https://github.com/BradSegal/PyPlasmode/issues"
+
+[project.optional-dependencies]
+validation = [
+  "matplotlib>=3.10,<4",
+  "statsmodels>=0.14,<0.16",
+]
+
+[dependency-groups]
+dev = [
+  "build>=1.2,<2",
+  "mypy>=1.15,<2",
+  "pytest>=8.3,<10",
+  "pytest-cov>=6,<8",
+  "ruff>=0.11,<1",
+  "statsmodels>=0.14,<0.16",
+  "twine>=6,<7",
+  "check-wheel-contents>=0.6,<1",
+  "scipy-stubs>=1.14,<2",
+]
+docs = [
+  "mkdocs>=1.6,<2",
+  "mkdocstrings[python]>=0.29,<2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pyplasmode"]
+core-metadata-version = "2.4"
+
+[tool.hatch.build.targets.sdist]
+core-metadata-version = "2.4"
+include = [
+  "/CHANGELOG.md",
+  "/CITATION.cff",
+  "/CONTRIBUTING.md",
+  "/LICENSE",
+  "/README.md",
+  "/THIRD_PARTY_NOTICES.md",
+  "/docs",
+  "/mkdocs.yml",
+  "/examples",
+  "/pyproject.toml",
+  "/src",
+  "/tests",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+markers = [
+  "unit: deterministic contract or calculation test",
+  "statistical: numerical or Monte Carlo validation",
+  "integration: public components composed across boundaries",
+]
+filterwarnings = ["error"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["pyplasmode"]
+
+[tool.deptry]
+known_first_party = ["pyplasmode"]
+
+[tool.deptry.per_rule_ignores]
+DEP002 = ["matplotlib", "statsmodels"]
+
+[[tool.mypy.overrides]]
+module = ["sklearn.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+branch = true
+source = ["pyplasmode"]

@@ -1,0 +1,217 @@
+{
+  "binary": {
+    "family": "bernoulli_logit",
+    "parameters": [
+      [
+        "intercept",
+        -1.5210218159372244
+      ],
+      [
+        "signal_coefficient",
+        0.6931471805599453
+      ],
+      [
+        "odds_ratio",
+        2
+      ]
+    ],
+    "checks": [
+      {
+        "name": "probability",
+        "target": 0.2,
+        "expected": 0.20000000000000004,
+        "realized": 0.194,
+        "tolerance": 0.05366563145999496,
+        "within_tolerance": true
+      }
+    ]
+  },
+  "continuous": {
+    "family": "gaussian",
+    "parameters": [
+      [
+        "intercept",
+        40
+      ],
+      [
+        "signal_coefficient",
+        2.0
+      ],
+      [
+        "residual_standard_deviation",
+        4.58257569495584
+      ],
+      [
+        "variance_explained",
+        0.16000000000000003
+      ]
+    ],
+    "checks": [
+      {
+        "name": "mean",
+        "target": 40,
+        "expected": 40,
+        "realized": 39.96795771373317,
+        "tolerance": 0.6708203932499369,
+        "within_tolerance": true
+      },
+      {
+        "name": "standard_deviation",
+        "target": 5,
+        "expected": 5,
+        "realized": 4.929934067234811,
+        "tolerance": 0.4744602789255799,
+        "within_tolerance": true
+      }
+    ]
+  },
+  "count": {
+    "family": "negative_binomial_nb1_log",
+    "parameters": [
+      [
+        "intercept",
+        0.9581079641044625
+      ],
+      [
+        "signal_coefficient",
+        0.5306282510621704
+      ],
+      [
+        "rate_ratio",
+        1.7
+      ],
+      [
+        "negative_binomial_dispersion",
+        1.0
+      ],
+      [
+        "conditional_variance_to_mean",
+        2
+      ]
+    ],
+    "checks": [
+      {
+        "name": "rate",
+        "target": 3,
+        "expected": 3.0,
+        "realized": 2.9795,
+        "tolerance": 0.3286335345030997,
+        "within_tolerance": true
+      }
+    ]
+  },
+  "ordinal": {
+    "family": "proportional_odds_logit",
+    "parameters": [
+      [
+        "thresholds",
+        [
+          -0.9356781575210626,
+          0.9357704989216422
+        ]
+      ],
+      [
+        "signal_coefficient",
+        0.6931471805599453
+      ],
+      [
+        "common_odds_ratio",
+        2
+      ]
+    ],
+    "checks": [
+      {
+        "name": "category_probability:Low",
+        "target": 0.3,
+        "expected": 0.30000000000000054,
+        "realized": 0.3035,
+        "tolerance": 0.06148170459575758,
+        "within_tolerance": true
+      },
+      {
+        "name": "category_probability:Middle",
+        "target": 0.4,
+        "expected": 0.4000000000000011,
+        "realized": 0.4035,
+        "tolerance": 0.06572670690061994,
+        "within_tolerance": true
+      },
+      {
+        "name": "category_probability:High",
+        "target": 0.3,
+        "expected": 0.2999999999999984,
+        "realized": 0.293,
+        "tolerance": 0.06148170459575758,
+        "within_tolerance": true
+      }
+    ]
+  },
+  "survival": {
+    "family": "piecewise_exponential_proportional_hazards",
+    "parameters": [
+      [
+        "signal_coefficient",
+        0.6931471805599453
+      ],
+      [
+        "hazard_ratio",
+        2.0
+      ],
+      [
+        "baseline_cumulative_hazards",
+        [
+          0.18728943815921173,
+          0.5533261894306034
+        ]
+      ],
+      [
+        "baseline_interval_hazards",
+        [
+          0.00010255410713714537,
+          0.00020043080151753139
+        ]
+      ],
+      [
+        "censoring_interval_hazards",
+        [
+          5.769227414528477e-05,
+          9.983384355589574e-05
+        ]
+      ]
+    ],
+    "checks": [
+      {
+        "name": "latent_event_risk:5 years",
+        "target": 0.2,
+        "expected": 0.19999999999999996,
+        "realized": 0.219,
+        "tolerance": 0.05366563145999496,
+        "within_tolerance": true
+      },
+      {
+        "name": "latent_event_risk:10 years",
+        "target": 0.45,
+        "expected": 0.45000000000000673,
+        "realized": 0.4565,
+        "tolerance": 0.06674578638386096,
+        "within_tolerance": true
+      },
+      {
+        "name": "censoring_risk:5 years",
+        "target": 0.1,
+        "expected": 0.1,
+        "realized": 0.1005,
+        "tolerance": 0.04024922359499622,
+        "within_tolerance": true
+      },
+      {
+        "name": "censoring_risk:10 years",
+        "target": 0.25,
+        "expected": 0.25,
+        "realized": 0.2635,
+        "tolerance": 0.05809475019311125,
+        "within_tolerance": true
+      }
+    ]
+  }
+}

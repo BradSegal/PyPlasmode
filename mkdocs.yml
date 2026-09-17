@@ -1,0 +1,33 @@
+site_name: PyPlasmode
+site_description: Simulate biomarker signals and evaluate prediction and feature recovery
+repo_url: https://github.com/BradSegal/PyPlasmode
+theme: readthedocs
+nav:
+  - Getting started: index.md
+  - Biomarker tutorial: tutorial.md
+  - Visual gallery: gallery.md
+  - Methods: methods.md
+  - Generating signals: truths.md
+  - Outcomes: outcomes.md
+  - Evaluation: evaluation.md
+  - Extensions: structures-and-extensions.md
+  - Validation: validation.md
+  - API: api.md
+  - Data handling: privacy-and-limitations.md
+  - References: references.md
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_signature_annotations: true
+            separate_signature: true
+            members_order: source
+            show_source: false
+            filters: ["!^_"]
+markdown_extensions:
+  - admonition
+  - tables
