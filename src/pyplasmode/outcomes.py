@@ -63,19 +63,29 @@ def years(value: float) -> Duration:
 
 @dataclass(frozen=True, slots=True)
 class BinaryOutcome:
-    """A marginal binary probability and one effect per signal standard deviation."""
+    """A marginal probability with one effect or an expected oracle AUROC target.
+
+    Specify exactly one of odds_ratio, risk_ratio, risk_difference or target_auc.
+    A target in [0.5, 1) solves an odds ratio at least one on the supplied signal
+    distribution; unattainable requests raise CalibrationError during generation.
+    Effects refer to one population standard deviation of the supplied signal.
+    """
 
     probability: float
     odds_ratio: float | None = None
     risk_ratio: float | None = None
     risk_difference: float | None = None
+    target_auc: float | None = None
 
     def __post_init__(self) -> None:
         if not 0.0 < self.probability < 1.0:
             raise OutcomeSpecificationError("binary probability must be between zero and one")
-        effects = (self.odds_ratio, self.risk_ratio, self.risk_difference)
+        effects = (self.odds_ratio, self.risk_ratio, self.risk_difference, self.target_auc)
         if sum(effect is not None for effect in effects) != 1:
-            raise OutcomeSpecificationError("BinaryOutcome requires exactly one effect measure")
+            raise OutcomeSpecificationError(
+                "BinaryOutcome requires exactly one effect measure or target_auc"
+            )
+        _validate_target_auc(self.target_auc)
         for ratio in (self.odds_ratio, self.risk_ratio):
             if ratio is not None and (not np.isfinite(ratio) or ratio <= 0.0):
                 raise OutcomeSpecificationError("binary ratio effects must be finite and positive")
@@ -184,21 +194,57 @@ def _risk_points(values: Mapping[Duration, float], *, name: str) -> tuple[RiskPo
 
 @dataclass(frozen=True, slots=True, init=False)
 class TimeToEventOutcome:
-    """Cumulative event/censoring risks and a proportional hazard ratio."""
+    """Cumulative risks with a hazard ratio or expected oracle AUROC target.
+
+    Specify exactly one of hazard_ratio or target_auc. auc_horizon must be a
+    time strictly before administrative_horizon. By default, it is the last
+    event-risk point before that cutoff, or half the cutoff for a single point.
+    Independent censoring changes realised precision but not the expected oracle discrimination.
+    Administrative follow-up defaults to the last risk point; a later explicit
+    administrative_horizon retains survivors beyond the final risk point with
+    no additional event or censoring hazard. Times are in days.
+    """
 
     event_risks: tuple[RiskPoint, ...]
-    hazard_ratio: float
+    hazard_ratio: float | None
     censoring_risks: tuple[RiskPoint, ...]
+    target_auc: float | None
+    auc_horizon: Duration
+    administrative_horizon: Duration
 
     def __init__(
         self,
         event_risks: Mapping[Duration, float],
-        hazard_ratio: float,
+        hazard_ratio: float | None = None,
         censoring_risks: Mapping[Duration, float] | None = None,
+        *,
+        target_auc: float | None = None,
+        auc_horizon: Duration | None = None,
+        administrative_horizon: Duration | None = None,
     ) -> None:
         events = _risk_points(event_risks, name="event_risks")
-        if not np.isfinite(hazard_ratio) or hazard_ratio <= 0.0:
+        if (hazard_ratio is None) == (target_auc is None):
+            raise OutcomeSpecificationError("specify exactly one of hazard_ratio or target_auc")
+        _validate_target_auc(target_auc)
+        if hazard_ratio is not None and (not np.isfinite(hazard_ratio) or hazard_ratio <= 0.0):
             raise OutcomeSpecificationError("hazard_ratio must be finite and positive")
+        administrative = administrative_horizon or events[-1].horizon
+        if administrative.days < events[-1].horizon.days:
+            raise OutcomeSpecificationError(
+                "administrative_horizon must cover all event-risk points"
+            )
+        eligible = [point.horizon for point in events if point.horizon.days < administrative.days]
+        chosen_horizon = auc_horizon or (
+            eligible[-1] if eligible else days(administrative.days / 2)
+        )
+        if chosen_horizon.days >= administrative.days:
+            raise OutcomeSpecificationError(
+                "auc_horizon must be strictly before administrative_horizon"
+            )
+        # Interior horizons use the same piecewise-constant hazards as generation.
+        upper_point = next((p for p in events if p.horizon.days >= chosen_horizon.days), events[-1])
+        if target_auc is not None and not 0.0 < upper_point.probability < 1.0:
+            raise OutcomeSpecificationError("target_auc requires positive event risk below one")
         censoring = (
             _risk_points(censoring_risks, name="censoring_risks")
             if censoring_risks is not None
@@ -211,7 +257,10 @@ class TimeToEventOutcome:
                 "censoring_risks must use the same horizons as event_risks"
             )
         object.__setattr__(self, "event_risks", events)
-        object.__setattr__(self, "hazard_ratio", float(hazard_ratio))
+        object.__setattr__(self, "hazard_ratio", hazard_ratio)
+        object.__setattr__(self, "target_auc", target_auc)
+        object.__setattr__(self, "auc_horizon", chosen_horizon)
+        object.__setattr__(self, "administrative_horizon", administrative)
         object.__setattr__(self, "censoring_risks", censoring)
 
 
@@ -234,11 +283,28 @@ class CalibrationCheck:
 
 @dataclass(frozen=True, slots=True)
 class CalibrationResult:
-    """Outcome calibration family, solved parameters and native-unit checks."""
+    """Solved parameters, marginal checks and expected oracle discrimination.
+
+    oracle_auc integrates conditional case/control probabilities over independent
+    draws from the empirical supplied signal population; it is not a realised
+    sample AUROC. It is reported for binary and survival outcomes when defined.
+    target_auc is None when discrimination was not explicitly targeted.
+    """
 
     family: str
     parameters: tuple[tuple[str, ParameterValue], ...]
     checks: tuple[CalibrationCheck, ...]
+    oracle_auc: float | None = None
+    target_auc: float | None = None
+
+    @property
+    def parameter_dict(self) -> dict[str, ParameterValue]:
+        """Return a fresh name-to-value mapping of the solved parameters."""
+        return dict(self.parameters)
+
+    def __getitem__(self, name: str) -> ParameterValue:
+        """Look up one solved parameter by name."""
+        return self.parameter_dict[name]
 
 
 def _readonly(values: NDArray[np.generic]) -> NDArray[np.generic]:
@@ -349,10 +415,13 @@ def _check(
 
 
 def _logit_intercept(offset: NDArray[np.float64], target: float) -> float:
-    """Solve a marginal probability without silently widening the supported model."""
+    """Solve the marginal probability with bounds covering the supplied offsets."""
+    log_odds = float(np.log(target) - np.log1p(-target))
+    lower = min(-50.0, log_odds - float(np.max(offset)) - 1.0)
+    upper = max(50.0, log_odds - float(np.min(offset)) + 1.0)
     try:
         return float(
-            brentq(lambda value: float(np.mean(expit(value + offset)) - target), -50.0, 50.0)
+            brentq(lambda value: float(np.mean(expit(value + offset)) - target), lower, upper)
         )
     except ValueError as error:
         raise CalibrationError(
@@ -372,16 +441,84 @@ def _solve_monotone(function: object, target_name: str) -> float:
         raise CalibrationError(f"could not bracket {target_name} calibration") from error
 
 
+def _validate_target_auc(target: float | None) -> None:
+    if target is not None and (not np.isfinite(target) or not 0.5 <= target < 1.0):
+        raise OutcomeSpecificationError("target_auc must be finite and in [0.5, 1)")
+
+
+def _oracle_auc(probabilities: NDArray[np.float64]) -> float | None:
+    """Integrate case/control pairs over an empirical score distribution.
+
+    Conditional event probabilities are oracle scores, so sorting them also
+    handles negative generating effects and constant signals. Identical scores
+    receive half credit, including independent draws of the same source row.
+    """
+    ordered = np.sort(probabilities)
+    cases = float(ordered.sum())
+    controls = float((1.0 - ordered).sum())
+    if cases <= 0 or controls <= 0:
+        return None
+    _, starts, counts = np.unique(ordered, return_index=True, return_counts=True)
+    case_mass = np.add.reduceat(ordered, starts)
+    control_mass = counts - case_mass
+    lower = np.cumsum(control_mass) - control_mass
+    return float(case_mass @ (lower + 0.5 * control_mass) / cases / controls)
+
+
+def _auc_coefficient(
+    z: NDArray[np.float64],
+    target: float,
+    probability: float,
+    *,
+    survival: bool,
+    survival_spec: TimeToEventOutcome | None = None,
+) -> float:
+    """Solve a positive log-ratio against expected oracle discrimination."""
+    if target == 0.5:
+        return 0.0
+    if np.ptp(z) == 0:
+        raise CalibrationError("target_auc above 0.5 is unattainable with constant signal")
+
+    def objective(beta: float) -> float:
+        if survival:
+            if survival_spec is None:
+                raise RuntimeError("survival calibration requires its risk specification")
+            multiplier = _hazard_multiplier(beta * z)
+            baseline = _cumulative_hazards(survival_spec.event_risks, multiplier)
+            at_horizon = _hazard_at_horizon(survival_spec, baseline)
+            probabilities = -np.expm1(-at_horizon * multiplier)
+        else:
+            probabilities = expit(_logit_intercept(beta * z, probability) + beta * z)
+        auc = _oracle_auc(probabilities)
+        if auc is None:
+            raise CalibrationError("oracle AUROC requires cases and controls")
+        return target - auc
+
+    # The supported effect range is independent of a single extreme observation.
+    # expit and finite hazard multipliers handle saturated tail probabilities.
+    limit = 8.0
+    if objective(limit) > 0.0:
+        raise CalibrationError(
+            f"target_auc {target:g} is unattainable in the supported "
+            f"log-ratio bracket [0, {limit:g}]"
+        )
+    return float(brentq(objective, 0.0, limit, xtol=1e-12, rtol=1e-12))
+
+
 def _generate_binary(
     spec: BinaryOutcome, z: NDArray[np.float64], rng: np.random.Generator
 ) -> BinaryGeneratedOutcome:
-    if spec.odds_ratio is not None:
-        beta = float(np.log(spec.odds_ratio))
+    if spec.odds_ratio is not None or spec.target_auc is not None:
+        beta = (
+            _auc_coefficient(z, spec.target_auc, spec.probability, survival=False)
+            if spec.target_auc is not None
+            else float(np.log(spec.odds_ratio if spec.odds_ratio is not None else 1.0))
+        )
         intercept = _logit_intercept(beta * z, spec.probability)
         probabilities = expit(intercept + beta * z)
         family = "bernoulli_logit"
         effect_name = "odds_ratio"
-        effect_value = spec.odds_ratio
+        effect_value = float(np.exp(beta))
     elif spec.risk_ratio is not None:
         beta = float(np.log(spec.risk_ratio))
         intercept = float(np.log(spec.probability / np.mean(np.exp(beta * z))))
@@ -414,6 +551,8 @@ def _generate_binary(
         family,
         (("intercept", intercept), ("signal_coefficient", beta), (effect_name, effect_value)),
         (check,),
+        _oracle_auc(probabilities),
+        spec.target_auc,
     )
     return BinaryGeneratedOutcome(values, calibration)
 
@@ -583,7 +722,7 @@ def _interval_hazards(
     rates = increments / widths
     if np.any(rates < -1e-12) or not np.isfinite(rates).all():
         raise CalibrationError("piecewise interval hazards must be finite and non-negative")
-    return np.maximum(rates, 0.0)
+    return np.asarray(np.maximum(rates, 0.0), dtype=np.float64)
 
 
 def _invert_piecewise(
@@ -606,11 +745,30 @@ def _invert_piecewise(
     return times
 
 
+def _hazard_multiplier(log_multiplier: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Keep saturated tail hazards finite, avoiding exp overflow or zero division.
+
+    At +/-700 the implied probabilities already round to their limiting values
+    for representable baseline hazards in the supported calibration range.
+    """
+    return np.asarray(np.exp(np.clip(log_multiplier, -700.0, 700.0)), dtype=np.float64)
+
+
+def _hazard_at_horizon(spec: TimeToEventOutcome, cumulative: NDArray[np.float64]) -> float:
+    """Interpolate cumulative baseline hazard under piecewise-constant rates."""
+    horizons = [0.0, *(point.horizon.days for point in spec.event_risks)]
+    return float(np.interp(spec.auc_horizon.days, horizons, np.r_[0.0, cumulative]))
+
+
 def _generate_survival(
     spec: TimeToEventOutcome, z: NDArray[np.float64], rng: np.random.Generator
 ) -> SurvivalGeneratedOutcome:
-    beta = float(np.log(spec.hazard_ratio))
-    multiplier = np.exp(beta * z)
+    beta = (
+        _auc_coefficient(z, spec.target_auc, 0.0, survival=True, survival_spec=spec)
+        if spec.target_auc is not None
+        else float(np.log(spec.hazard_ratio if spec.hazard_ratio is not None else 1.0))
+    )
+    multiplier = _hazard_multiplier(beta * z)
     horizons = np.asarray([point.horizon.days for point in spec.event_risks], dtype=np.float64)
     baseline_cumulative = _cumulative_hazards(spec.event_risks, multiplier)
     baseline_intervals = _interval_hazards(horizons, baseline_cumulative)
@@ -623,7 +781,7 @@ def _generate_survival(
     censor_threshold = rng.exponential(size=z.size)
     latent_event_time = _invert_piecewise(event_threshold, horizons, baseline_cumulative)
     censoring_time = _invert_piecewise(censor_threshold, horizons, censoring_cumulative)
-    administrative = float(horizons[-1])
+    administrative = spec.administrative_horizon.days
     event = (latent_event_time <= censoring_time) & (latent_event_time <= administrative)
     observed_time = np.minimum(np.minimum(latent_event_time, censoring_time), administrative)
 
@@ -656,12 +814,15 @@ def _generate_survival(
         "piecewise_exponential_proportional_hazards",
         (
             ("signal_coefficient", beta),
-            ("hazard_ratio", spec.hazard_ratio),
+            ("hazard_ratio", float(np.exp(beta))),
+            ("auc_horizon_days", spec.auc_horizon.days),
             ("baseline_cumulative_hazards", tuple(float(value) for value in baseline_cumulative)),
             ("baseline_interval_hazards", tuple(float(value) for value in baseline_intervals)),
             ("censoring_interval_hazards", tuple(float(value) for value in censoring_intervals)),
         ),
         tuple(checks),
+        _oracle_auc(-np.expm1(-_hazard_at_horizon(spec, baseline_cumulative) * multiplier)),
+        spec.target_auc,
     )
     return SurvivalGeneratedOutcome(
         observed_time,

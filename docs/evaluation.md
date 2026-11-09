@@ -16,6 +16,10 @@ Compute each method's results on the same simulated data to make the comparison 
 | How similar are repeated rankings? | `rank_stability` |
 | What is the average result across simulations? | `summarize_replicates` |
 
+The [metrics guide](metrics.md) covers chance-corrected selection stability, tied
+rank agreement, consensus, censored AUROC, participant bootstrap differences and
+discrimination gaps. Import these additions from `pyplasmode.metrics`.
+
 ## Rankings and scores
 
 Ranking evaluators accept a complete ordered tuple containing every feature once. Resolve
@@ -128,8 +132,9 @@ possible, observed and expected recovery coincide and the adjusted value is zero
 the model with its recovery of other specified signals. In this API, *specificity* means
 preference for one generating signal over others, not the true-negative rate of a classifier.
 
-The compared signals require disjoint recovery targets and equal numbers of targets under
-the same mechanism: groups for group recovery, features otherwise. Group membership
+`evaluate_outcome_specificity` requires `own_truth` and every truth in
+`foreign_truths` to share the same mechanism (`kind`), have non-overlapping target
+features and equal target counts (groups for `estimand="group"`, features otherwise). Group membership
 sizes may differ; the matched-reference expectation accounts for those sizes.
 Specificity is chance-adjusted recovery for the model's signal minus the mean for the other signals.
 As a difference between adjusted scores, it can exceed one in magnitude.
@@ -186,3 +191,44 @@ part of the summary.
 
 [Morris et al., Section 5.2](references.md#simulation-studies) explains why Monte Carlo
 uncertainty should accompany simulation results.
+
+### Paired procedure comparisons
+
+Use the same independently generated worlds for both procedures and identify them
+explicitly. `compare_paired_replicates` aligns by unique IDs before computing
+right-minus-left differences; it does not assume the input orders are equal.
+
+```python
+from pyplasmode import compare_paired_replicates
+
+comparison = compare_paired_replicates(
+    ("world_1", "world_2", "world_3"),
+    [0.6, 0.7, 0.8],
+    ("world_3", "world_1", "world_2"),
+    [0.85, 0.65, 0.75],
+)
+print(comparison.summary.mean)  # 0.05
+```
+
+Unmatched IDs raise by default. `allow_unmatched=True` explicitly uses the
+intersection and reports unmatched counts. A `None` estimate marks a failed
+procedure, with per-arm and joint failure counts retained. The t interval is
+conditional on complete successful pairs; selective failures may bias that
+conditional comparison, so report failure rates and their causes separately.
+The function requires at least two complete pairs. A positive difference favours
+the right procedure for AUC but favours the left procedure for a loss metric.
+Refits or participants within one world are not independent simulation replicates.
+This function does not provide participant-level bootstrap confidence intervals.
+
+### Graph regions without edges
+
+`evaluate_graph_region` reports node coverage for every non-empty valid region.
+If its induced graph has no edges, `edge_coverage` is `None` and
+`target_edge_count` is zero: an absent edge target is not zero recovery. Summaries
+must report how many regions have an evaluable edge denominator and must not
+replace unavailable edge coverage by zero.
+
+
+For empirical inputs, the [tutorial's correlation-bin example](tutorial.md#matching-strata-on-empirical-measurements)
+constructs outcome-blind strata from measurements. Align the resulting tuple
+with the nomination's feature order before calling `evaluate_matched_recovery`.

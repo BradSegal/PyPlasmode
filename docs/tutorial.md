@@ -146,3 +146,34 @@ comparison over independent outcome draws, include a null signal and stronger ef
 and report the resulting distribution of prediction, precision and recovery. The
 [outcome examples](outcomes.md) extend this design to continuous responses, counts,
 ordered categories and time-to-event data.
+
+## Choose discrimination and compare refits
+
+Use `BinaryOutcome(probability=0.15, target_auc=0.7)` to solve an odds ratio
+for the supplied generating score instead of choosing a ratio in advance. See
+[calibration](calibration.md) for the empirical-population interpretation.
+For several fitted rankings, use [selection stability and consensus](metrics.md).
+Use a shared participant bootstrap to compare fixed fitted predictors; use
+paired replicate comparisons for independent simulation worlds.
+
+
+## Matching strata on empirical measurements
+
+For an empirical matrix, define strata before generating outcomes or fitting
+models. For example, bin each feature by its strongest absolute correlation
+with another feature. Estimate these correlations on the source or training
+measurements, keeping evaluation outcomes out of this step:
+
+```python
+correlations = np.abs(np.corrcoef(population.X, rowvar=False))
+np.fill_diagonal(correlations, 0.0)
+max_correlation = correlations.max(axis=0)
+correlation_bins = np.digitize(max_correlation, [0.3, 0.7])
+empirical_strata = tuple(f"correlation_{int(b)}" for b in correlation_bins)
+assert len(empirical_strata) == len(population.feature_ids)
+```
+
+This example assumes complete, non-constant features. Resolve missingness or
+use missingness-rate bins before computing correlations on other matrices.
+Choose bin boundaries before examining recovery, and check that each stratum
+contains enough candidates to support the intended comparison.

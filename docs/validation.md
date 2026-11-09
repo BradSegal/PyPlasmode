@@ -84,3 +84,15 @@ Together, these exercise both known positive recovery and its chance reference.
 
 Run the tests with `pytest` after following the
 [development setup](https://github.com/BradSegal/PyPlasmode/blob/main/CONTRIBUTING.md).
+
+## Metrics and AUROC targeting in 1.2.0
+
+The metrics tests include exact enumeration of boundary ties, chance-level
+selection stability and rank overlap under exchangeable rankings, consensus
+from noisy refits, weighted-pair AUROC calculations, recovery of uncensored
+discrimination under independent censoring, shared participant bootstrap
+intervals and oracle-minus-fitted discrimination. AUROC calibration tests cover
+12 binary and 36 survival settings; their sample sizes and tolerances are given
+in the [calibration guide](calibration.md). The executable
+[metrics and calibration example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/metrics_calibration.py)
+combines these additions on synthetic scores.

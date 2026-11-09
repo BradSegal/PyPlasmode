@@ -11,7 +11,16 @@ from sklearn.pipeline import Pipeline
 @pytest.mark.integration
 @pytest.mark.filterwarnings("ignore:.*:FutureWarning:sklearn.*")
 @pytest.mark.parametrize(
-    "page", ["README", "tutorial", "outcomes", "structures-and-extensions", "evaluation"]
+    "page",
+    [
+        "README",
+        "tutorial",
+        "outcomes",
+        "structures-and-extensions",
+        "evaluation",
+        "metrics",
+        "calibration",
+    ],
 )
 def test_documented_workflow(page: str) -> None:
     """Keep executable documentation aligned with the installed public API."""
@@ -34,5 +43,5 @@ def test_documented_workflow(page: str) -> None:
         assert namespace["alignment"].unmapped == ("G",)
     elif page == "evaluation":
         assert namespace["result"].at_depth[0].recall == 0.5
-    else:
+    elif page == "README":
         assert namespace["recovery"].at_depth[0].recall == 1.0

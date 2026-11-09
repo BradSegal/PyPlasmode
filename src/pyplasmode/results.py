@@ -67,7 +67,8 @@ class GraphRegionAtDepth:
 
     depth: int
     node_coverage: float
-    edge_coverage: float
+    edge_coverage: float | None
+    target_edge_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +134,25 @@ class ReplicateSummary:
     standard_error: float
     confidence_interval_low: float
     confidence_interval_high: float
+
+
+@dataclass(frozen=True, slots=True)
+class PairedReplicateComparison:
+    """Right-minus-left differences aligned by independent simulation identity.
+
+    Summary uncertainty is conditional on complete successful pairs. Unmatched
+    identities are counted separately; failures count only among matched pairs.
+    """
+
+    replicate_ids: tuple[str, ...]
+    differences: tuple[float, ...]
+    matched_pair_count: int
+    failed_pair_count: int
+    left_failure_count: int
+    right_failure_count: int
+    unmatched_left_count: int
+    unmatched_right_count: int
+    summary: ReplicateSummary
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,7 +1,8 @@
 """Generate incident outcomes and evaluate an independently fitted Cox procedure.
 
-Requires the validation extra for statsmodels. Model fitting and censoring-aware
-prediction metrics belong to the user, not to the simulation library.
+Requires the validation extra for statsmodels. Model fitting uses an external
+estimator. Censoring-aware prediction evaluation
+is available separately in pyplasmode.metrics.
 """
 
 import json

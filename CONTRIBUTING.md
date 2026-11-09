@@ -4,7 +4,7 @@ Contributions to generators, evaluation functions, documentation and examples ar
 For a new signal or outcome family, describe the intended use and mathematical definition
 in an issue before implementing it.
 
-From a checkout, install a supported Python version (3.12-3.14) and uv, then run:
+From a checkout, install a supported Python version (3.12-3.15) and uv, then run:
 
 ```bash
 uv sync --extra validation --group docs
@@ -17,6 +17,10 @@ uv run python -m build
 uv run twine check --strict dist/*
 uv run check-wheel-contents dist/*.whl
 ```
+
+Add `--extra benchmark` to `uv sync` to run the synthetic Cox/ridge/XGBoost
+example and its integration test. Without those optional dependencies the
+integration test is explicitly skipped.
 
 Run `python examples/validation_vignette.py --output validation-output` to regenerate the
 synthetic validation figures and tables. The `validation` extra is included in the setup above.

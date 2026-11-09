@@ -6,11 +6,14 @@ theme: readthedocs
 nav:
   - Getting started: index.md
   - Feature-selection tutorial: tutorial.md
+  - Synthetic benchmark: benchmark-demo.md
   - Visual gallery: gallery.md
   - Methods: methods.md
   - Generating signals: truths.md
   - Outcomes: outcomes.md
   - Evaluation: evaluation.md
+  - Metrics: metrics.md
+  - AUROC calibration: calibration.md
   - Extensions: structures-and-extensions.md
   - Validation: validation.md
   - API: api.md

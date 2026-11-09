@@ -65,3 +65,13 @@ PyPlasmode's own numerical checks and reference results are documented in [Valid
   and [PHReg](https://www.statsmodels.org/stable/generated/statsmodels.duration.hazard_regression.PHReg.html)
   provide the binomial, Poisson, linear, ordered-logistic and Cox fits in the
   [validation example](validation.md).
+
+## Selection stability and censored discrimination
+
+- Nogueira S, Sechidis K, Brown G. On the Stability of Feature Selection Algorithms.
+  *Journal of Machine Learning Research* 18(174), 1–54 (2018).
+  [Article](https://jmlr.org/papers/v18/17-514.html). Definition 4 supplies
+  chance-corrected selection stability; the tie extension integrates independent
+  binary resolutions.
+- [scikit-survival cumulative/dynamic AUROC](https://scikit-survival.readthedocs.io/en/stable/api/generated/sksurv.metrics.cumulative_dynamic_auc.html)
+  gives the IPCW definition used for numerical reference checks.

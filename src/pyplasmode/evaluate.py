@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from itertools import combinations
-from typing import Literal
+from numbers import Real
+from typing import Literal, cast
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -29,6 +31,7 @@ from pyplasmode.results import (
     GroupEvaluation,
     ModuleAtDepth,
     ModuleEvaluation,
+    PairedReplicateComparison,
     PanelEvaluation,
     PredictionEvaluation,
     RankingAtDepth,
@@ -155,7 +158,7 @@ def evaluate_graph_region(
     region: tuple[str, ...],
     depths: tuple[int, ...],
 ) -> GraphRegionEvaluation:
-    """Evaluate node and induced-edge recovery for a declared graph region."""
+    """Evaluate region recovery, with edge coverage unavailable if no edges exist."""
     ordered = _ranking(ranking, graph.nodes)
     checked_depths = _depths(depths, len(ordered))
     region_set = set(region)
@@ -170,12 +173,13 @@ def evaluate_graph_region(
     for depth in checked_depths:
         selected = set(ordered[:depth])
         recovered_edges = sum(edge <= selected for edge in region_edges)
-        edge_coverage = recovered_edges / len(region_edges) if region_edges else 0.0
+        edge_coverage = recovered_edges / len(region_edges) if region_edges else None
         rows.append(
             GraphRegionAtDepth(
                 depth,
                 len(selected & region_set) / len(region_set),
                 edge_coverage,
+                len(region_edges),
             )
         )
     return GraphRegionEvaluation(tuple(rows))
@@ -370,17 +374,27 @@ def rank_stability(
 
 def summarize_replicates(values: ArrayLike, *, failure_count: int = 0) -> ReplicateSummary:
     """Summarize replicate estimates with a 95% Monte Carlo t interval."""
+    if not np.isrealobj(values):
+        raise ValueError("replicate estimates must be real-valued")
     estimates = np.asarray(values, dtype=np.float64)
     if estimates.ndim != 1 or estimates.size < 2 or not np.isfinite(estimates).all():
         raise ValueError("uncertainty requires at least two finite replicate values")
     if isinstance(failure_count, bool) or not isinstance(failure_count, int) or failure_count < 0:
         raise ValueError("failure_count must be a non-negative integer")
-    mean = float(np.mean(estimates))
-    standard_deviation = float(np.std(estimates, ddof=1))
-    standard_error = standard_deviation / np.sqrt(estimates.size)
-    critical = float(t.ppf(0.975, df=estimates.size - 1))
-    low = mean - critical * standard_error
-    high = mean + critical * standard_error
+    scale = float(np.max(np.abs(estimates)))
+    scaled = estimates / scale if scale else estimates
+    try:
+        with np.errstate(over="raise", invalid="raise"):
+            mean = float(np.mean(scaled) * scale)
+            standard_deviation = float(np.std(scaled, ddof=1) * scale)
+            standard_error = standard_deviation / np.sqrt(estimates.size)
+            critical = float(t.ppf(0.975, df=estimates.size - 1))
+            low = mean - critical * standard_error
+            high = mean + critical * standard_error
+    except FloatingPointError as error:
+        raise ValueError("replicate summary exceeds finite floating-point range") from error
+    if not np.isfinite((mean, standard_deviation, standard_error, low, high)).all():
+        raise ValueError("replicate summary exceeds finite floating-point range")
     return ReplicateSummary(
         estimates.size,
         failure_count,
@@ -390,3 +404,78 @@ def summarize_replicates(values: ArrayLike, *, failure_count: int = 0) -> Replic
         low,
         high,
     )
+
+
+def compare_paired_replicates(
+    left_ids: tuple[str, ...],
+    left_values: Sequence[float | None],
+    right_ids: tuple[str, ...],
+    right_values: Sequence[float | None],
+    *,
+    allow_unmatched: bool = False,
+) -> PairedReplicateComparison:
+    """Summarise right-minus-left differences after aligning replicate identities.
+
+    IDs must uniquely identify independent simulation worlds, not participants
+    or correlated refits. ``None`` explicitly marks failure; non-finite numeric
+    estimates are rejected. Unmatched IDs fail by default; opt-in intersection
+    reports exclusions. At least two successful pairs are required for a 95%
+    Monte Carlo t interval. With failures, its estimand is conditional on joint
+    success and may differ from the planned-world estimand. A positive difference
+    favours the right procedure only for metrics where larger values are better.
+    """
+    left = _replicate_values(left_ids, left_values)
+    right = _replicate_values(right_ids, right_values)
+    unmatched_left = set(left) - set(right)
+    unmatched_right = set(right) - set(left)
+    if not isinstance(allow_unmatched, bool):
+        raise ValueError("allow_unmatched must be a boolean")
+    if (unmatched_left or unmatched_right) and not allow_unmatched:
+        raise ValueError("paired replicate identities differ")
+    matched = tuple(identity for identity in left_ids if identity in right)
+    complete = tuple(
+        identity
+        for identity in matched
+        if left[identity] is not None and right[identity] is not None
+    )
+    if len(complete) < 2:
+        raise ValueError("paired uncertainty requires at least two successful pairs")
+    differences = tuple(
+        cast(float, right[identity]) - cast(float, left[identity]) for identity in complete
+    )
+    failed = len(matched) - len(complete)
+    return PairedReplicateComparison(
+        complete,
+        differences,
+        len(matched),
+        failed,
+        sum(left[identity] is None for identity in matched),
+        sum(right[identity] is None for identity in matched),
+        len(unmatched_left),
+        len(unmatched_right),
+        summarize_replicates(differences, failure_count=failed),
+    )
+
+
+def _replicate_values(
+    identities: tuple[str, ...], values: Sequence[float | None]
+) -> dict[str, float | None]:
+    """Validate identities and distinguish explicit failures from numeric defects."""
+    if len(identities) != len(values) or not identities:
+        raise ValueError("replicate identities and values must be non-empty and aligned")
+    if any(not isinstance(identity, str) or not identity.strip() for identity in identities):
+        raise ValueError("replicate identities must be non-empty strings")
+    if len(set(identities)) != len(identities):
+        raise ValueError("replicate identities must be unique")
+    normalised: dict[str, float | None] = {}
+    for identity, value in zip(identities, values, strict=True):
+        if value is None:
+            normalised[identity] = None
+        elif not isinstance(value, Real):
+            raise ValueError("replicate estimates must be real scalars or explicitly None")
+        else:
+            estimate = float(value)
+            if not np.isfinite(estimate):
+                raise ValueError("replicate estimates must be finite or explicitly None")
+            normalised[identity] = estimate
+    return normalised

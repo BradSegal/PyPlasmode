@@ -35,31 +35,29 @@ class FractionalNomination:
         values = np.asarray(self.membership, dtype=np.float64)
         support = set(self.positive_support)
         positions = {feature: index for index, feature in enumerate(self.feature_ids)}
-        boundary = values[(values > 0.0) & (values < 1.0)]
-        if (
-            values.shape != (len(self.feature_ids),)
-            or not np.isfinite(values).all()
-            or np.any((values < 0.0) | (values > 1.0))
-            or self.requested_depth > len(self.feature_ids)
-            or not support.issubset(positions)
-            or any(
-                values[index] > 0.0 and feature not in support
-                for index, feature in enumerate(self.feature_ids)
-            )
-            or (
-                boundary.size > 0
-                and (
-                    not np.allclose(boundary, boundary[0], atol=1e-12, rtol=0.0)
-                    or not np.isclose(float(np.sum(boundary)), round(float(np.sum(boundary))))
-                )
-            )
-            or not np.isclose(
-                float(np.sum(values)),
-                min(self.requested_depth, len(self.positive_support)),
-                atol=1e-12,
-            )
+        if values.shape != (len(self.feature_ids),):
+            raise ValueError("membership must be a vector aligned with feature_ids")
+        if not np.isfinite(values).all() or np.any((values < 0.0) | (values > 1.0)):
+            raise ValueError("membership must contain finite probabilities in [0, 1]")
+        if self.requested_depth > len(self.feature_ids):
+            raise ValueError("requested_depth must not exceed the feature count")
+        if not support.issubset(positions):
+            raise ValueError("positive_support must be a subset of feature_ids")
+        if any(
+            values[index] > 0.0 and feature not in support
+            for index, feature in enumerate(self.feature_ids)
         ):
-            raise ValueError("fractional nomination is invalid")
+            raise ValueError("positive membership requires positive_support")
+        boundary = values[(values > 0.0) & (values < 1.0)]
+        if boundary.size > 0 and (
+            not np.allclose(boundary, boundary[0], atol=1e-12, rtol=0.0)
+            or not np.isclose(float(np.sum(boundary)), round(float(np.sum(boundary))))
+        ):
+            raise ValueError("boundary memberships must be equal and sum to an integer budget")
+        if not np.isclose(
+            float(np.sum(values)), min(self.requested_depth, len(self.positive_support)), atol=1e-12
+        ):
+            raise ValueError("membership sum must match the depth limited by positive support")
         frozen = values.copy()
         frozen.setflags(write=False)
         object.__setattr__(self, "membership", frozen)
@@ -172,6 +170,7 @@ def evaluate_fractional_recovery(
     truth: MaterializedTruth,
     *,
     estimand: RecoveryEstimand,
+    allow_subset: bool = False,
 ) -> FractionalRecovery:
     """Score a feature selection against the chosen recovery target.
 
@@ -179,6 +178,8 @@ def evaluate_fractional_recovery(
         nomination: Feature membership probabilities, including tied scores.
         truth: Materialized generating mechanism on the same feature universe.
         estimand: Exact, group, module, or interaction recovery definition.
+        allow_subset: Permit a declared candidate subset. Unavailable targets retain
+            their original denominator and receive no recovery credit.
 
     Returns:
         Bounded recovery with explicit truth and nomination support.
@@ -186,13 +187,15 @@ def evaluate_fractional_recovery(
     Raises:
         ValueError: If the nomination and truth differ or the estimand has no target.
     """
-    if nomination.feature_ids != truth.feature_universe:
+    if nomination.feature_ids != truth.feature_universe and not (
+        allow_subset and set(nomination.feature_ids).issubset(truth.feature_universe)
+    ):
         raise ValueError("nomination and truth feature universes differ")
     membership = _membership(nomination)
     if estimand == "exact":
         if not truth.direct_features:
             raise ValueError("exact recovery requires direct truth features")
-        value = float(np.mean([membership[feature] for feature in truth.direct_features]))
+        value = float(np.mean([membership.get(feature, 0.0) for feature in truth.direct_features]))
         truth_support = len(truth.direct_features)
     elif estimand == "group":
         if not truth.admissible_groups:
@@ -200,7 +203,7 @@ def evaluate_fractional_recovery(
         recovered = [
             _boundary_selection_probability(
                 tuple(membership.values()),
-                tuple(membership[feature] for feature in group.features),
+                tuple(membership.get(feature, 0.0) for feature in group.features),
                 require_all=False,
             )
             for group in truth.admissible_groups
@@ -211,16 +214,16 @@ def evaluate_fractional_recovery(
         weights = {item.feature: abs(item.weight) for item in truth.weights}
         if not weights or sum(weights.values()) <= 0.0:
             raise ValueError("module recovery requires non-zero truth weights")
-        value = sum(membership[feature] * weight for feature, weight in weights.items()) / sum(
-            weights.values()
-        )
+        value = sum(
+            membership.get(feature, 0.0) * weight for feature, weight in weights.items()
+        ) / sum(weights.values())
         truth_support = len(weights)
     elif estimand == "interaction":
         if len(truth.direct_features) != 2:
             raise ValueError("interaction recovery requires two direct truth features")
         value = _boundary_selection_probability(
             tuple(membership.values()),
-            tuple(membership[feature] for feature in truth.direct_features),
+            tuple(membership.get(feature, 0.0) for feature in truth.direct_features),
             require_all=True,
         )
         truth_support = 2
@@ -396,6 +399,8 @@ def _expected_matched_recovery(
                     available=available,
                     weights=weights,
                 )
+                if feature in positions
+                else 0.0
                 for feature in truth.direct_features
             ],
             dtype=np.float64,
@@ -413,6 +418,8 @@ def _expected_matched_recovery(
                     available=available,
                     weights=weights,
                 )
+                if item.feature in positions
+                else 0.0
                 for item in truth.weights
             ],
             dtype=np.float64,
@@ -422,7 +429,7 @@ def _expected_matched_recovery(
         recovered = tuple(
             1.0
             - _no_target_selection_probability(
-                tuple(positions[feature] for feature in group.features),
+                tuple(positions[feature] for feature in group.features if feature in positions),
                 available=available,
                 weights=weights,
             )
@@ -430,6 +437,8 @@ def _expected_matched_recovery(
         )
         return float(np.mean(recovered))
     if estimand == "interaction":
+        if not set(truth.direct_features).issubset(positions):
+            return 0.0
         first, second = (positions[feature] for feature in truth.direct_features)
         neither_first = _no_target_selection_probability(
             (first,),
@@ -493,6 +502,7 @@ def evaluate_matched_recovery(
     *,
     estimand: RecoveryEstimand,
     strata: tuple[str, ...],
+    allow_subset: bool = False,
 ) -> MatchedRecovery:
     """Compare observed recovery with expected recovery under matched random selection.
 
@@ -509,7 +519,9 @@ def evaluate_matched_recovery(
     Raises:
         ValueError: If geometry or truth are invalid.
     """
-    observed = evaluate_fractional_recovery(nomination, truth, estimand=estimand)
+    observed = evaluate_fractional_recovery(
+        nomination, truth, estimand=estimand, allow_subset=allow_subset
+    )
     available, support_counts, weights = _geometry(nomination, strata)
     positions = {feature: index for index, feature in enumerate(nomination.feature_ids)}
     panel_count = 1
@@ -564,6 +576,7 @@ def evaluate_outcome_specificity(
     *,
     estimand: RecoveryEstimand,
     strata: tuple[str, ...],
+    allow_subset: bool = False,
 ) -> OutcomeSpecificity:
     """Compare recovery of the model's generating signal with other disjoint signals.
 
@@ -572,7 +585,8 @@ def evaluate_outcome_specificity(
         own_truth: Generating signal for the outcome used to fit the model.
         foreign_truths: Other signals of the same mechanism and recovery-target count.
         estimand: Mechanism-specific exact, group, module, or interaction recovery.
-        strata: Outcome-blind matching stratum for every feature.
+        strata: Outcome-blind matching stratum for every candidate feature.
+        allow_subset: Evaluate a declared subset against unchanged generating truths.
 
     Returns:
         Own adjusted recovery, mean foreign adjusted recovery, and their difference.
@@ -603,6 +617,7 @@ def evaluate_outcome_specificity(
         own_truth,
         estimand=estimand,
         strata=strata,
+        allow_subset=allow_subset,
     ).chance_adjusted_recovery
     foreign = tuple(
         evaluate_matched_recovery(
@@ -610,6 +625,7 @@ def evaluate_outcome_specificity(
             truth,
             estimand=estimand,
             strata=strata,
+            allow_subset=allow_subset,
         ).chance_adjusted_recovery
         for truth in foreign_truths
     )
