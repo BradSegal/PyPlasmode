@@ -4,7 +4,9 @@
 is a small, self-contained comparison of Cox, ridge and XGBoost. It generates
 all features and outcomes in memory; it requires no participant data or downloads.
 
-Install the optional model dependencies and download the linked example:
+On macOS, install the OpenMP runtime required by XGBoost with
+`brew install libomp`. Then install the optional model dependencies and download
+the linked example:
 
 ```bash
 python -m pip install "pyplasmode[benchmark]"
