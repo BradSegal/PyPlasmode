@@ -32,7 +32,8 @@ def simulate(specification):
 ## Binary
 
 `BinaryOutcome` accepts a marginal positive probability and one odds ratio, risk ratio or risk
-difference. These use logistic, log-risk and identity-risk links, respectively. The resulting
+difference, or `target_auc` to solve an odds ratio. See the
+[AUROC calibration guide](calibration.md). The effect measures use logistic, log-risk and identity-risk links, respectively. The resulting
 conditional probabilities must lie in `[0, 1]`.
 
 ```python
@@ -117,9 +118,13 @@ event rate to change after year five. PyPlasmode uses a constant rate within eac
 giving a piecewise-exponential model that matches those cumulative risks.
 
 `TimeToEventOutcome` accepts cumulative event risks at one or more `days(...)` or `years(...)`
-horizons, a hazard ratio and optional cumulative censoring risks at the same horizons. One
+horizons, either a hazard ratio or `target_auc`, and optional cumulative censoring risks at the same horizons. One
 point implies a constant baseline hazard. Several points imply piecewise-constant interval
-hazards. Censoring is independent and administrative follow-up ends at the last horizon.
+hazards. Censoring is independent. Administrative follow-up ends at the last
+risk point unless a later `administrative_horizon` is supplied. The default AUROC
+horizon is the last risk point strictly before that cutoff, or half the cutoff
+for a single point. Set `auc_horizon` explicitly when the scientific question
+requires a particular time.
 Targets describe latent event risk before censoring; observed time and event state are returned
 for modelling.
 

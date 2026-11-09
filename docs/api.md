@@ -49,3 +49,7 @@ can share a place in a leading list. It also compares recovery with matched rand
 ## Evaluation results
 
 ::: pyplasmode.results
+
+## Selection agreement and censored discrimination
+
+::: pyplasmode.metrics

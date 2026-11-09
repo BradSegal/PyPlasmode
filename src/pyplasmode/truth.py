@@ -233,7 +233,7 @@ def _completed_standardized(
     if constants:
         raise ValueError(f"truth features are constant: {constants}")
     scales[scales == 0.0] = 1.0
-    return (matrix - np.mean(matrix, axis=0)) / scales
+    return np.asarray((matrix - np.mean(matrix, axis=0)) / scales, dtype=np.float64)
 
 
 def _indices(population: Population, features: tuple[str, ...]) -> NDArray[np.int64]:

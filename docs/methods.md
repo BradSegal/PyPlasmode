@@ -103,3 +103,12 @@ errors, with a six-observation floor for probabilities. These diagnostic toleran
 for sampling variation. A rare draw can exceed them and raise `RealizationError`; include
 such failures in replicate summaries. Use independent replicates to estimate performance
 and Monte Carlo uncertainty.
+
+## Discrimination and repeated selections
+
+The [metrics guide](metrics.md) defines chance-corrected selection stability,
+independent resolution of ties, inclusion-first consensus and censoring-aware
+AUROC. The [calibration guide](calibration.md) explains how a target expected
+oracle AUROC determines an odds or hazard ratio on the supplied signal
+distribution. Expected discrimination and realised discrimination are reported
+separately; a rare outcome may have substantial realised sampling variation.

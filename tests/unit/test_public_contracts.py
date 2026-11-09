@@ -158,13 +158,13 @@ def test_rank_biased_overlap_matches_prefix_formula() -> None:
             assert actual.mean_rank_biased_overlap == pytest.approx(expected)
 
 
-def test_infeasible_logit_request_has_a_calibration_error() -> None:
-    with pytest.raises(ppm.CalibrationError, match="bracket"):
-        ppm.generate_outcome(
-            ppm.BinaryOutcome(probability=1e-30, odds_ratio=1),
-            np.zeros(10),
-            np.random.default_rng(1),
-        )
+def test_logit_intercept_bracket_covers_rare_probabilities() -> None:
+    outcome = ppm.generate_outcome(
+        ppm.BinaryOutcome(probability=1e-30, odds_ratio=1),
+        np.zeros(10),
+        np.random.default_rng(1),
+    )
+    assert outcome.calibration.checks[0].expected == pytest.approx(1e-30, rel=1e-8, abs=0)
 
 
 def test_group_specificity_matches_group_count_not_total_membership() -> None:

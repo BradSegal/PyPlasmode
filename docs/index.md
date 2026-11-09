@@ -22,7 +22,7 @@ and compare their recovery with random selection.
 
 ## Install and run
 
-Install from [PyPI](https://pypi.org/project/pyplasmode/) with Python 3.12-3.14.
+Install from [PyPI](https://pypi.org/project/pyplasmode/) with Python 3.12-3.15.
 
 ```bash
 python -m pip install pyplasmode

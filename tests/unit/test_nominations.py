@@ -46,7 +46,7 @@ def test_nomination_rejects_negative_or_nonfinite_scores() -> None:
 
 def test_nomination_rejects_non_tie_fractional_membership() -> None:
     """Public fractional membership must encode one uniform boundary tie."""
-    with pytest.raises(ValueError, match="fractional nomination"):
+    with pytest.raises(ValueError, match="boundary memberships"):
         ppm.FractionalNomination(
             ("a", "b", "c"),
             np.array([1.0, 0.75, 0.25]),
@@ -90,3 +90,22 @@ def test_sampled_matched_nominations_preserve_support_ties_and_strata() -> None:
                 np.sort(item.membership[positions]),
                 np.sort(observed.membership[positions]),
             )
+
+
+@pytest.mark.parametrize(
+    "membership, depth, support, message",
+    [
+        ([[1, 0]], 1, ("a",), "aligned"),
+        ([float("nan"), 0], 1, ("a",), "finite probabilities"),
+        ([1, 0], 3, ("a",), "feature count"),
+        ([1, 0], 1, ("c",), "subset"),
+        ([0, 1], 1, ("a",), "positive_support"),
+        ([0.2, 0.8], 1, ("a", "b"), "boundary memberships"),
+        ([0, 0], 1, ("a",), "membership sum"),
+    ],
+)
+def test_fractional_nomination_reports_specific_invalid_field(membership, depth, support, message):
+    from pyplasmode import FractionalNomination
+
+    with pytest.raises(ValueError, match=message):
+        FractionalNomination(("a", "b"), np.asarray(membership), depth, support)

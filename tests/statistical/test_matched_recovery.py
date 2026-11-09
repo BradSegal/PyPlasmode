@@ -22,6 +22,71 @@ def _truth(kind: str = "sparse") -> ppm.MaterializedTruth:
     )
 
 
+def test_subset_retains_missing_generator_in_denominator_and_actual_null() -> None:
+    """An unavailable generator cannot be credited or removed from the estimand."""
+    truth = _truth()
+    panel = tuple(feature for feature in truth.feature_universe if feature != "p1")
+    nomination = ppm.nomination_from_scores(panel, np.asarray([1.0] + [0.0] * 8), depth=1)
+    with pytest.raises(ValueError, match="universe"):
+        ppm.evaluate_matched_recovery(nomination, truth, estimand="exact", strata=("all",) * 9)
+    result = ppm.evaluate_matched_recovery(
+        nomination, truth, estimand="exact", strata=("all",) * 9, allow_subset=True
+    )
+    assert result.observed_recovery == 0.5
+    assert result.expected_recovery == pytest.approx(1 / 18)
+    assert result.chance_adjusted_recovery == pytest.approx(0.5 - 1 / 18)
+
+
+def test_subset_module_ceiling_preserves_missing_weight() -> None:
+    """Weighted recovery cannot exceed the accessible share of original truth."""
+    truth = ppm.MaterializedTruth(
+        kind="module",
+        signal=np.arange(20, dtype=np.float64),
+        feature_universe=("a", "b", "c"),
+        weights=(ppm.FeatureWeight("a", 1.0), ppm.FeatureWeight("b", 3.0)),
+    )
+    nomination = ppm.nomination_from_scores(("a", "c"), np.asarray([1.0, 0.0]), depth=1)
+    result = ppm.evaluate_matched_recovery(
+        nomination, truth, estimand="module", strata=("all", "all"), allow_subset=True
+    )
+    assert result.observed_recovery == 0.25
+    assert result.expected_recovery == pytest.approx(0.125)
+
+
+def test_subset_group_proxy_and_unavailable_interaction() -> None:
+    """An available proxy can recover a group, but cannot complete a missing pair."""
+    universe = ("a", "b", "proxy", "other")
+    nomination = ppm.nomination_from_scores(("proxy", "other"), np.asarray([1.0, 0.0]), depth=1)
+    group_truth = ppm.MaterializedTruth(
+        kind="correlated",
+        signal=np.arange(20, dtype=np.float64),
+        feature_universe=universe,
+        admissible_groups=(
+            ppm.RecoveryGroup("a", "a", ("a", "proxy")),
+            ppm.RecoveryGroup("b", "b", ("b",)),
+        ),
+    )
+    group = ppm.evaluate_matched_recovery(
+        nomination, group_truth, estimand="group", strata=("all",) * 2, allow_subset=True
+    )
+    assert group.observed_recovery == 0.5
+    assert group.expected_recovery == pytest.approx(0.25)
+    interaction_truth = ppm.MaterializedTruth(
+        kind="interaction",
+        signal=np.arange(20, dtype=np.float64),
+        feature_universe=universe,
+        direct_features=("a", "b"),
+    )
+    interaction = ppm.evaluate_matched_recovery(
+        nomination,
+        interaction_truth,
+        estimand="interaction",
+        strata=("all",) * 2,
+        allow_subset=True,
+    )
+    assert interaction.observed_recovery == interaction.expected_recovery == 0.0
+
+
 def _sampled_expectation(
     nomination: ppm.FractionalNomination,
     truth: ppm.MaterializedTruth,

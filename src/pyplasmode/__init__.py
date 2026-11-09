@@ -1,5 +1,6 @@
 """Plasmode generation with known signals and feature-recovery evaluation."""
 
+from pyplasmode import metrics
 from pyplasmode.data import (
     Population,
     PopulationPartition,
@@ -10,6 +11,7 @@ from pyplasmode.data import (
     sample_population,
 )
 from pyplasmode.evaluate import (
+    compare_paired_replicates,
     evaluate_graph_region,
     evaluate_groups,
     evaluate_module,
@@ -65,6 +67,7 @@ from pyplasmode.results import (
     MatchedRecovery,
     ModuleEvaluation,
     OutcomeSpecificity,
+    PairedReplicateComparison,
     PanelEvaluation,
     PredictionEvaluation,
     RankingEvaluation,
@@ -94,7 +97,7 @@ from pyplasmode.truth import (
     materialize_truth,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 
 __all__ = [
     "BinaryGeneratedOutcome",
@@ -130,6 +133,7 @@ __all__ = [
     "OutcomeSpec",
     "OutcomeSpecificationError",
     "OutcomeSpecificity",
+    "PairedReplicateComparison",
     "PanelEvaluation",
     "PartitionSampleSizes",
     "PartitionedPlasmode",
@@ -151,6 +155,7 @@ __all__ = [
     "TimeToEventOutcome",
     "TruthSpec",
     "__version__",
+    "compare_paired_replicates",
     "days",
     "duration",
     "evaluate_fractional_recovery",
@@ -167,6 +172,7 @@ __all__ = [
     "generate_outcome",
     "generate_partitioned",
     "materialize_truth",
+    "metrics",
     "nomination_from_scores",
     "partition_population",
     "rank_stability",

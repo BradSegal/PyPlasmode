@@ -5,6 +5,13 @@ permissions:
 concurrency:
   group: library-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  MPLBACKEND: Agg
+  CUDA_VISIBLE_DEVICES: ""
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -14,8 +21,11 @@ jobs:
       matrix:
         include:
           - {os: ubuntu-latest, python: '3.12', dependencies: minimum}
+          - {os: ubuntu-latest, python: '3.12', dependencies: current}
+          - {os: ubuntu-latest, python: '3.12', dependencies: core-minimum}
           - {os: ubuntu-latest, python: '3.13', dependencies: current}
           - {os: ubuntu-latest, python: '3.14', dependencies: current}
+          - {os: ubuntu-latest, python: '3.15', dependencies: current}
           - {os: windows-latest, python: '3.13', dependencies: current}
           - {os: macos-latest, python: '3.13', dependencies: current}
     steps:
@@ -23,14 +33,28 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
+      - name: Install the OpenMP runtime for XGBoost on macOS
+        if: runner.os == 'macOS'
+        run: brew install libomp
       - run: python -m pip install --upgrade pip
       - if: matrix.dependencies == 'minimum'
-        run: python -m pip install "numpy==2.0.2" "scipy==1.14.1" "scikit-learn==1.6.1"
-      - run: python -m pip install ".[validation]" pytest
+        run: python -m pip install "numpy==2.0.0" "scipy==1.14.0" "scikit-learn==1.6.1" "scikit-survival==0.24.0" "xgboost==2.1.0" "statsmodels==0.14.6" "matplotlib==3.10.0" "threadpoolctl==3.1.0"
+      - if: matrix.dependencies == 'core-minimum'
+        run: python -m pip install "numpy==2.0.0" "scipy==1.14.0" "scikit-learn==1.6.0" "statsmodels==0.14.6"
+      - if: matrix.dependencies == 'core-minimum'
+        run: python -m pip install ".[validation]" pytest
+      - if: matrix.dependencies != 'core-minimum'
+        run: python -m pip install ".[validation,benchmark]" pytest
       - run: python -m pytest -q
       - run: python examples/quickstart.py
       - run: python examples/survival.py
       - run: python examples/custom_signal.py
+      - run: python examples/recovery.py
+      - run: python examples/metrics_calibration.py
+      - if: matrix.dependencies != 'core-minimum'
+        run: python examples/benchmark_recovery_demo.py
+      - run: python examples/pattern_gallery.py --output gallery-output
+      - run: python examples/validation_vignette.py --output validation-output
   distribution:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -40,7 +64,7 @@ jobs:
         with:
           python-version: '3.13'
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e ".[validation]" --group dev --group docs
+      - run: python -m pip install -e ".[validation,benchmark]" --group dev --group docs
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy src/pyplasmode
@@ -52,5 +76,5 @@ jobs:
         working-directory: ${{ runner.temp }}
         run: |
           python -m venv consumer
-          consumer/bin/python -m pip install "$GITHUB_WORKSPACE"/dist/*.whl pytest statsmodels
+          consumer/bin/python -m pip install "$GITHUB_WORKSPACE"/dist/*.whl pytest statsmodels scikit-survival xgboost
           consumer/bin/python -I -m pytest --import-mode=importlib "$GITHUB_WORKSPACE/tests" -q

@@ -1,10 +1,8 @@
 # Concept diagrams
 
-Bradley Segal supplied these diagrams for the PyPlasmode documentation and manuscript.
-The original vector PDFs are preserved; PNG copies provide browser previews.
+These diagrams illustrate outcome generation and feature recovery in PyPlasmode.
+The repository retains the vector PDFs for editing and print use; the documentation
+uses PNG previews. The source distribution includes the previews.
 
-- `plasmode-workflow.pdf`: supplied as `Biomarkers (2).pdf`.
-- `signal-recovery.pdf`: supplied as `Biomarkers (3).pdf`.
-
-The captions in the documentation explain the simulated disease score and distinguish
-true contributors from proteins selected by a fitted model.
+- `plasmode-workflow`: observed features, generating signal, outcomes and evaluation.
+- `signal-recovery`: generating contributors and features selected by a fitted model.
