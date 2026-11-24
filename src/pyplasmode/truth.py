@@ -335,7 +335,7 @@ def materialize_truth(
         feature_sets: Named memberships required by correlated and module truths.
 
     Returns:
-        Standardised latent signal and explicit recovery targets. The input
+        Standardised generating score and explicit recovery targets. The input
         matrix is unchanged. Null truth has a zero signal and no targets.
 
     Raises:

@@ -120,7 +120,7 @@ def generate(
 
     Args:
         population: Source matrix of shape (observations, features).
-        truth: Specification defining the latent signal structure and recovery targets.
+        truth: Specification defining the signal structure and recovery targets.
         outcome: Observable outcome targets and effect per signal standard deviation.
         sample_size: Positive number of generated rows.
         seed: Non-negative seed; separate child streams control rows, truth and outcome.

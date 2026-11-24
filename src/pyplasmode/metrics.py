@@ -115,8 +115,8 @@ def rank_biased_overlap(
 
     Lower values mean better ranks; equal values indicate ties. Convert higher
     importance scores with ``rankdata(-scores, method="average")`` first.
-    The default ``tie_method="webber"`` follows Webber et al. (2010), section
-    4.3 (4.6, Eq. 28 in the author's version): prefixes contain whole tie groups
+    The default ``tie_method="webber"`` follows Webber et al. (2010), Equation 28
+    in section 4.6 of the author's manuscript: prefixes contain whole tie groups
     starting at or before depth d, and
     agreement is twice their intersection divided by their combined sizes.
     Identical tied rankings have agreement one.

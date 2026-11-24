@@ -80,7 +80,7 @@ class GraphRegionEvaluation:
 
 @dataclass(frozen=True, slots=True)
 class SignalReconstructionEvaluation:
-    """Held-out linear reconstruction of a known latent signal."""
+    """Held-out linear reconstruction of a known generating score."""
 
     selected_feature_count: int
     evaluation_count: int
