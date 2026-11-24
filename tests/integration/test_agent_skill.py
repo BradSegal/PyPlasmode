@@ -15,7 +15,7 @@ def test_skill_metadata_names_the_package() -> None:
     match = re.match(r"---\nname: (.+)\ndescription: (.+)\n---\n", text)
     assert match is not None
     assert match.group(1) == "pyplasmode"
-    assert len(match.group(2)) > 200
+    assert 0 < len(match.group(2)) <= 1024
     assert "references/recipes.md" in text
     assert len(text.splitlines()) < 500
 

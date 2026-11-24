@@ -7,14 +7,15 @@ and recovery measure fit a question, and the mistakes that make a simulation mis
 The package is the folder
 [`skills/pyplasmode`](https://github.com/BradSegal/PyPlasmode/tree/main/skills/pyplasmode).
 It follows the open skill layout: a `SKILL.md` file with a name, a description of when to use
-it and the instructions, and a `references` folder with complete recipes. Copy the folder to
-the place your agent loads skills from, or point the agent at `SKILL.md` directly. It needs
-no tools beyond Python with PyPlasmode installed.
+it and the instructions, and a `references` folder with complete recipes. If your coding agent
+supports this skill format, copy the folder to its skill directory. You can also ask an agent
+with file access to read `SKILL.md` and the recipes it points to. Running the examples needs a
+supported Python version with PyPlasmode installed.
 
-The recipes cover repeating a study and comparing two methods, correlated features with
-group recovery, sizing a study by its number of events, time-to-event outcomes with
-censoring, and setting difficulty with a target AUC. Every code block in the package is run
-by the test suite against the current API.
+The recipes cover repeating a study and comparing two procedures, correlated features with
+group recovery, how recovery varies with sample size, time-to-event outcomes with censoring,
+and setting difficulty with a target AUC. The test suite runs the Python examples against the
+public API.
 
 The skill uses the same terms as this documentation. Generated datasets contain rows of the
 source data, so the [data handling guidance](privacy-and-limitations.md) applies to anything
