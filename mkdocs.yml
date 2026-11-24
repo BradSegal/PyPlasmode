@@ -15,6 +15,7 @@ nav:
   - Metrics: metrics.md
   - AUC calibration: calibration.md
   - Extensions: structures-and-extensions.md
+  - Coding agents: agents.md
   - Validation: validation.md
   - API: api.md
   - Data handling: privacy-and-limitations.md

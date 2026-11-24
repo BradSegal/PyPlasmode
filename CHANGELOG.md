@@ -3,7 +3,12 @@
 ## 1.2.1 — 2026-11-24
 
 A documentation release. The library computes the same results as 1.2.0: no executable code
-changed apart from the version string.
+in the package changed apart from the version string.
+
+### Added
+
+- A skill package for coding agents (`skills/pyplasmode`): the workflow, the choice of signal
+  structure and recovery measure, common mistakes and five tested recipes.
 
 ### Changed
 

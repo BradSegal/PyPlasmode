@@ -119,6 +119,12 @@ fits Cox, ridge and XGBoost across three signal structures and three target AUCs
 compares held-out AUC with recovery above chance in the top 20 features. It needs the
 optional model libraries: `python -m pip install "pyplasmode[benchmark]"`.
 
+## Using it with a coding agent
+
+The folder [`skills/pyplasmode`](https://github.com/BradSegal/PyPlasmode/tree/main/skills/pyplasmode)
+is a skill package that teaches a coding agent the workflow, the choices and the common
+mistakes. See [Coding agents](https://bradsegal.github.io/PyPlasmode/agents/).
+
 ## Working with empirical data
 
 Resampling preserves the source data's feature relationships and missingness patterns.

@@ -76,6 +76,7 @@ include = [
   "/docs",
   "/mkdocs.yml",
   "/examples",
+  "/skills",
   "/pyproject.toml",
   "/src",
   "/tests",
