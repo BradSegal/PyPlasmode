@@ -45,6 +45,8 @@ def forest_scores(train):
 
 
 ids, linear, forest = [], [], []
+generation_failures = []
+fit_failures = {"linear": [], "forest": []}
 for seed in range(5):
     ids.append(f"dataset_{seed}")
     try:
@@ -57,24 +59,44 @@ for seed in range(5):
             seed=seed,
         )
     except ppm.RealizationError:
+        generation_failures.append(ids[-1])
         linear.append(None)  # the draw stays in the denominator
         forest.append(None)
         continue
     train = samples.training
-    for scores, results in ((linear_scores(train), linear), (forest_scores(train), forest)):
+    for name, score_fn, results in (
+        ("linear", linear_scores, linear),
+        ("forest", forest_scores, forest),
+    ):
+        if name == "linear" and np.unique(train.outcome.values).size < 2:
+            fit_failures[name].append((ids[-1], "one training class"))
+            results.append(None)
+            continue
+        scores = score_fn(train)
         selection = ppm.nomination_from_scores(train.feature_ids, scores, depth=8)
         matched = ppm.evaluate_matched_recovery(
             selection, train.truth, estimand="exact", strata=strata
         )
         results.append(matched.chance_adjusted_recovery)
 
-succeeded = [value for value in linear if value is not None]
-print(len(ids), len(succeeded), ppm.summarize_replicates(succeeded).mean)
-comparison = ppm.compare_paired_replicates(tuple(ids), linear, tuple(ids), forest)
-print(comparison.summary.mean)  # forest minus linear, on the datasets where both ran
+print("attempted", len(ids), "generation failures", generation_failures)
+for name, results in (("linear", linear), ("forest", forest)):
+    succeeded = [value for value in results if value is not None]
+    print(name, "successful", len(succeeded), "fit failures", fit_failures[name])
+    if len(succeeded) >= 2:
+        print(ppm.summarize_replicates(succeeded, failure_count=len(ids) - len(succeeded)).mean)
+    else:
+        print("mean", succeeded[0] if succeeded else "undefined", "interval undefined")
+
+complete = sum(a is not None and b is not None for a, b in zip(linear, forest, strict=True))
+if complete >= 2:
+    comparison = ppm.compare_paired_replicates(tuple(ids), linear, tuple(ids), forest)
+    print(comparison.summary.mean)  # forest minus linear, on the datasets where both ran
+else:
+    print("paired difference undefined: fewer than two complete pairs")
 ```
 
-`SparseTruth(count=4)` uses a seeded search for four features under the pairwise correlation threshold, so the generating features can differ between seeds; name the features explicitly to study one particular set. Report each procedure's mean, the paired difference with its Monte Carlo interval, the attempted and successful counts and the causes of failure. The paired estimate is conditional on both procedures succeeding.
+`SparseTruth(count=4)` uses a seeded search for four features under the pairwise correlation threshold, so the generating features can differ between seeds; name the features explicitly to study one particular set. Report each procedure's mean, the paired difference with its Monte Carlo interval, the attempted and successful counts and the causes of failure. The paired estimate is conditional on both procedures succeeding. When adapting this recipe, decide in advance which fitting or evaluation failures make a procedure's estimate unavailable, record the procedure, draw and reason, and insert `None` for that procedure; investigate specification errors and unexpected exceptions separately.
 
 ## 2. Correlated features and group recovery
 
@@ -122,7 +144,7 @@ Here the chance reference keeps the number of positive scores and the selection 
 
 ## 3. How recovery varies with sample size
 
-Recovery can keep improving after prediction has levelled off. To see how it depends on the size of a study, hold the signal, the event probability and the procedure fixed and vary the training size.
+Recovery can keep improving after prediction has levelled off. To see how it depends on the size of a study, hold the generating features, the outcome targets and the procedure fixed and vary the training size. This design recalibrates the score and the outcome on the combined sampled rows at each size; to isolate training size under one fixed generating mechanism, fix its transformation and outcome parameters across sizes.
 
 ```python
 import numpy as np
@@ -159,7 +181,7 @@ for training_size in (400, 3_600):
     print(training_size, events, round(auc, 3), round(matched.chance_adjusted_recovery, 3))
 ```
 
-Two sizes show a direction, not a threshold. For sizing, vary training size at the intended event probability, keep the evaluation sample adequate, and fix in advance the selection rule, the acceptable recovery and precision, and the Monte Carlo precision. Repeat each setting (recipe 1), report the realised event counts with their uncertainty, and identify the smallest size studied that meets the criteria under each plausible design. Treat event counts as specific to the scenario; prevalence, effect size and signal structure need their own sensitivity runs.
+The two draws illustrate the comparison; estimate a trend or a threshold from repeated draws at each size. For sizing, vary training size at the intended event probability, keep the evaluation sample adequate, and fix in advance the selection rule, the acceptable recovery and precision, and the Monte Carlo precision. Repeat each setting (recipe 1), report the realised event counts with their uncertainty, and identify the smallest size studied that meets the criteria under each plausible design. Treat event counts as specific to the scenario; prevalence, effect size and signal structure need their own sensitivity runs.
 
 ## 4. Time-to-event outcomes with censoring
 
@@ -207,7 +229,7 @@ censored = ~test.outcome.event & (test.outcome.time <= horizon.days)
 print(round(auc, 3), int(cases.sum()), int(censored.sum()))  # AUC, cases, censored by ten years
 ```
 
-Fit the survival model on the training features with `train.outcome.time` (in days) and `train.outcome.event`, and pass a test score in which higher means higher risk. For a row censored at or before the horizon without an event, the status at the horizon is unknown. Decide in advance how a classifier of "event by the horizon" treats those rows, and evaluate both kinds of model on the same people and the same horizon.
+Fit the survival model on the training features with `train.outcome.time` (in days) and `train.outcome.event`, and pass a test score in which higher means higher risk. For a row censored at or before the horizon without an event, the status at the horizon is unknown. Decide in advance how a classifier of "event by the horizon" handles those unknown labels, with a censoring-aware approach such as inverse-probability weighting where appropriate, and evaluate both scores on the same people, horizon and metric.
 
 ## 5. Set the difficulty with a target AUC
 

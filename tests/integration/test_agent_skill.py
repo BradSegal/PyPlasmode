@@ -28,5 +28,10 @@ def test_skill_examples_run(name: str) -> None:
     source = SKILL / name
     blocks = re.findall(r"```python\n(.*?)```", source.read_text(encoding="utf-8"), re.DOTALL)
     assert blocks
+    namespace: dict[str, object] = {}
     for block in blocks:
-        exec(compile(block, str(source), "exec"), {})
+        namespace = {}
+        exec(compile(block, str(source), "exec"), namespace)
+    if name == "references/recipes.md":
+        calibration = namespace["calibration"]
+        assert abs(calibration.oracle_auc - 0.75) < 1e-7  # type: ignore[attr-defined]
