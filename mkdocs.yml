@@ -13,7 +13,7 @@ nav:
   - Outcomes: outcomes.md
   - Evaluation: evaluation.md
   - Metrics: metrics.md
-  - AUROC calibration: calibration.md
+  - AUC calibration: calibration.md
   - Extensions: structures-and-extensions.md
   - Validation: validation.md
   - API: api.md

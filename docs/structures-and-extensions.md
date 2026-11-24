@@ -1,15 +1,16 @@
 # Feature structures and extensions
 
-`FeatureSets` holds named groups of features, and `FeatureGraph` connects features through
-weighted, undirected edges. Groups can represent correlated measurements or biological
-pathways; a graph can represent a similarity or interaction network. Supply the memberships
-and edges from your own analysis or an external resource.
+Feature structures tell PyPlasmode which features belong together, so a signal or recovery
+target can refer to a group or network region. `FeatureSets` holds named groups of features,
+and `FeatureGraph` connects features through weighted, undirected edges. Groups can represent
+correlated measurements or biological pathways; a graph, a similarity or interaction
+network. Supply both from your own analysis or an external resource.
 
 Call `align(population)` to inspect which feature identities match the population and which
 are missing from either side before using the structure for generation or evaluation.
 
 As a biological example, suppose a pathway lists A, B and G, but your dataset contains
-A, B and C. All structure types are imported from the public `pyplasmode` namespace:
+A, B and C:
 
 ```python
 import numpy as np
@@ -29,8 +30,7 @@ print(network.align(population).mapped)  # ('A', 'B')
 Alignment reports identities; it does not impute the missing measurement G. Restrict a
 generating pathway to measured members or supply the missing measurement explicitly.
 Use the same identifier convention in the matrix and annotation resource. The
-[tutorial](tutorial.md) shows how aligned sets become correlated-group signals.
+[tutorial](tutorial.md) shows how aligned sets become correlated signals.
 
-For other generating mechanisms, define a `CustomTruth` function and its recovery targets.
-Keep the function focused on the signal calculation; your surrounding workflow can handle
-data preparation and modelling. See [Generating signals](truths.md#custom-signal).
+For a signal structure that the built-in classes do not cover, define a `CustomTruth`
+function and its recovery targets. See [Generating signals](truths.md#custom-signal).

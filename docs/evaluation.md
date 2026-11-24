@@ -2,48 +2,55 @@
 
 Choose an evaluator for the question you want to answer. Prediction metrics describe the
 model's accuracy; recovery metrics compare its selected features with the known signal.
-Compute each method's results on the same simulated data to make the comparison paired.
+A *panel* is a selected subset of features used to predict. Compute each method's results
+on the same simulated dataset, one independent draw of outcomes from a design, to make the
+comparison paired.
 
 | Question | Function |
 | --- | --- |
 | Which generating features were found? | `evaluate_ranking` |
 | Was at least one member of each relevant group found? | `evaluate_groups` |
 | How much generating weight does the panel cover? | `evaluate_module` |
-| Which nodes and edges of a specified graph region were recovered? | `evaluate_graph_region` |
-| Can the panel reconstruct the signal? | `evaluate_signal_reconstruction` |
+| What fraction of a graph region's nodes and edges was recovered? | `evaluate_graph_region` |
+| Can the panel reconstruct the generating score? | `evaluate_signal_reconstruction` |
 | How accurate are the predictions? | `evaluate_prediction` |
 | How does a smaller panel compare with a reference model? | `evaluate_panel` |
 | How similar are repeated rankings? | `rank_stability` |
 | What is the average result across simulations? | `summarize_replicates` |
+| Which of two procedures does better across simulations? | `compare_paired_replicates` |
+| How is recovery shared when importance scores tie? | `evaluate_fractional_recovery` |
+| How far is recovery above chance? | `evaluate_matched_recovery` |
+| Does a selection prefer its own signal to other signals? | `evaluate_outcome_specificity` |
 
-The [metrics guide](metrics.md) covers chance-corrected selection stability, tied
-rank agreement, consensus, censored AUROC, participant bootstrap differences and
-discrimination gaps. Import these additions from `pyplasmode.metrics`.
+[Metrics](metrics.md) covers `pyplasmode.metrics`: selection stability, rank agreement
+with ties, consensus rankings, AUC under censoring, bootstrap differences and the
+discrimination gap.
 
 ## Rankings and scores
 
-Ranking evaluators accept a complete ordered tuple containing every feature once. Resolve
-score ties using your chosen ordering rule before supplying this tuple.
+A selection is the features a method picks. Ranking evaluators accept it as a complete
+ordered tuple containing every feature once; resolve score ties using your chosen ordering
+rule before supplying this tuple.
 
-Alternatively, pass non-negative importance scores to `nomination_from_scores`. A
-*nomination* is the API's representation of a feature selection, including partial membership
-when scores tie. The function selects
-the leading positive scores and shares any remaining slots equally among features tied at
-the cutoff. For example, two features tied for one slot each receive membership 0.5.
-Zero scores are excluded, so a model with fewer positive scores than the requested depth
-returns a smaller selection.
+Alternatively, pass non-negative importance scores to `nomination_from_scores`. It returns
+a `FractionalNomination`, the API's name for a selection with partial membership when
+scores tie. The function selects the leading positive scores and shares any remaining
+slots equally among features tied at the cutoff. For example, two features tied for one
+slot each receive membership 0.5. Zero scores are excluded, so a model with fewer positive
+scores than the requested depth returns a smaller selection.
 
-`selected_features` contains features with non-zero membership. `positive_support` contains
-all features with a positive input score, including those below the cutoff.
-Use `evaluate_fractional_recovery` to compute exact, group, weighted-module or interaction
-recovery from these memberships.
+`selected_features` contains features with non-zero membership and `achieved_size` counts
+them, including every feature tied at the cutoff, so it can exceed the requested depth.
+`membership_budget` is the sum of membership probabilities and cannot exceed that depth.
+`positive_support` contains all features with a positive input score, including those
+below the cutoff. Use `evaluate_fractional_recovery` to compute exact, group, weighted (`estimand="module"`)
+or interaction recovery from these memberships.
 
 ## Feature and group recovery
 
-Suppose A and B generate the outcome, but a model's top two features are A and C.
-It has found one of two contributors: recall is 0.5. One of its two selections is correct:
-precision is also 0.5, and the false-discovery fraction is 0.5. These quantities have
-different denominators even when their values happen to agree.
+Recovery is the fraction of the generating features, of their groups or of their weight
+that a selection contains. Suppose A and B generate the outcome, but a model's top two
+features are A and C.
 
 ```python
 import numpy as np
@@ -59,106 +66,110 @@ print(result.at_depth[0].recall)  # 0.5
 print(result.at_depth[0].precision)  # 0.5
 ```
 
-In this example A carries nine times B's generating weight. The same selection recovers half
-the contributors but 90% of their absolute weight. If C is an admissible substitute for B,
-the selection also recovers both groups. Exact recovery counts contributors, weighted
-recovery accounts for their specified weights, and group recovery credits the specified substitutes.
+In this example A carries nine times B's generating weight, and C may be specified as a
+correlate of B: a measured feature strongly correlated with it, in the same group. The
+same selection then scores differently under each definition. Exact recovery is the
+`recall` field.
 
 | Question | Example | Score |
 | --- | --- | --- |
-| Did we find the exact contributors? | A and B generate risk; A and C are selected. | Recall 1/2 |
-| Are the selections contributors? | One of two selected features generates risk. | Precision 1/2 |
+| Did we find the generating features? | A and B generate risk; A and C are selected. | Exact recovery 1/2 |
+| Are the selections generating features? | One of two selected features generates risk. | Precision 1/2 |
 | Did we find their groups? | Groups are {A} and {B, C}; A and C are selected. | Group recovery 2/2 |
-| How much generating weight is covered? | A has weight 9 and B weight 1; only A is selected. | Weighted coverage 9/10 |
-| Was an interaction recovered? | The signal requires A and B; only A is selected. | Joint recovery 0 |
+| How much generating weight is covered? | A has weight 9 and B weight 1; only A is selected. | Weighted recovery 9/10 |
+| Was an interaction recovered? | The signal requires A and B; only A is selected. | Interaction recovery 0 |
 
-For a tied boundary, think of selecting uniformly among the tied features. If B and C tie
-for one place, each has inclusion probability 0.5. If both belong to the same group, that
-group is certain to be found; if they belong to different groups, each group is found with
-probability 0.5. The equations below implement these probabilities without breaking ties
-arbitrarily. The [worked recovery script](https://github.com/BradSegal/PyPlasmode/blob/main/examples/recovery.py)
+The [worked recovery script](https://github.com/BradSegal/PyPlasmode/blob/main/examples/recovery.py)
 reproduces the exact, weighted and group examples.
 
-Let `S_k` be a selected set of size `k`, `T` the set of features used directly in the signal,
-and `U` the set of all features. Exact recall is `|S_k intersect T| / |T|`; precision is
-`|S_k intersect T| / k`; false-discovery fraction is `1 - precision`. All three use the
-specified simulation truth. Exact recall requires a non-empty set of exact generating
-features; use group or weighted recovery for distributed signals.
+Let `S_k` be a selected set of size `k` and `T` the set of generating features
+(`truth.direct_features`). Exact recovery is `|S_k intersect T| / |T|`; precision is
+`|S_k intersect T| / k`; false-discovery fraction is `1 - precision`. Exact recovery
+requires a non-empty `T`; use group or weighted recovery for distributed signals.
 
-For selection membership `m_j`, exact recall is `sum(j in T, m_j) / |T|`.
-For generating weights `w_j`, weighted coverage is
-`sum(j, |w_j| m_j) / sum(j, |w_j|)`. A two-feature signal with weights `(9, 1)` therefore
-has recall 0.5 and weighted coverage 0.9 when only its first feature is selected.
+For selection membership `m_j`, exact recovery is `sum(j in T, m_j) / |T|`.
+For generating weights `w_j`, weighted recovery (the `weighted_coverage` field) is
+`sum(j, |w_j| m_j) / sum(j, |w_j|)`.
 
-For group `G`, group recovery is the probability of selecting at least one member.
+Membership is the probability of inclusion when the tied slots are filled uniformly at
+random. For group `G`, group recovery is the probability
+of selecting at least one member. If B and C tie for one place, a group containing both is
+certain to be found; a group containing only one is found with probability 0.5.
 At a tied boundary with `b` features and `r` remaining slots, if `t` group members are tied
 and no member is already selected, recovery is `1 - choose(b-t, r) / choose(b, r)`.
 Interaction recovery instead requires both generating features. If both are tied it is
 `choose(b-2, r-2) / choose(b, r)`, zero when fewer than two slots remain.
 
-`achieved_size` counts all features with non-zero membership, including every feature tied
-at the cutoff, so it can exceed the requested depth. `membership_budget` is the sum of
-membership probabilities and cannot exceed that depth.
-
 ## Matched chance recovery
 
 Selecting ten out of 100 exchangeable features recovers 10% of the generating features
-on average, even if the ranking contains no information. Recovering 40% therefore gives
-an excess of 30 percentage points above that reference. Grouped features need more care:
+on average, even if the ranking contains no information. Recovering 40% is therefore
+30 percentage points above chance. Grouped features need more care:
 a large group is easier to hit randomly than a small one. A matched reference keeps such
 properties comparable, so improvement does not merely reflect an easier selection task.
 
-`evaluate_matched_recovery` compares observed recovery with its expectation under random
-feature assignment. You supply strata: groups of features with similar properties, defined
-without using the generating truth or evaluation outcomes. The reference retains the number
+`evaluate_matched_recovery` returns recovery above chance: observed recovery minus its
+expectation under random feature assignment (`observed_recovery`, `expected_recovery` and
+`chance_adjusted_recovery`). You supply strata: groups of features with similar properties,
+defined without using the signal or evaluation outcomes. The reference retains the number
 of positive scores in each stratum and the selection's membership weights, while reassigning
 them to feature identities within that stratum.
 
-For example, a dataset may contain strongly correlated pairs and independent features.
-Label each member of a pair `pair` and each independent feature `singleton`, using the
-measurements before generating outcomes. Matching within these strata compares a method
-with random lists containing the same number of paired and isolated measurements.
-The [tutorial](tutorial.md#compare-with-matched-chance) gives executable code
-and interprets the resulting observed, expected and excess recovery.
+The [tutorial](tutorial.md#compare-with-matched-chance) builds strata for correlated pairs
+and independent features, runs the comparison and interprets the result. For empirical
+inputs, its
+[correlation-bin example](tutorial.md#matching-strata-on-empirical-measurements)
+constructs strata from measurements; align the resulting tuple with the selection's
+feature order before calling `evaluate_matched_recovery`.
 
-The returned chance-adjusted recovery is `observed - expected`. For exact recall, expected
-membership of a feature in stratum `h` is `sum(j in h, m_j) / |h|`. Expectations are computed
-analytically for exact, group, module and interaction recovery. If only one assignment is
-possible, observed and expected recovery coincide and the adjusted value is zero.
+Expectations are computed analytically for exact, group, weighted and interaction recovery.
+For exact recovery, expected membership of a feature in stratum `h` is
+`sum(j in h, m_j) / |h|`. If only one assignment is possible, observed and expected
+recovery coincide and recovery above chance is zero.
 
 ### Outcome specificity
 
-`evaluate_outcome_specificity` compares a selection's recovery of the signal used to fit
-the model with its recovery of other specified signals. In this API, *specificity* means
-preference for one generating signal over others, not the true-negative rate of a classifier.
+`evaluate_outcome_specificity` asks whether a selection prefers the signal used to fit
+the model over other specified signals. Specificity is recovery above chance for the
+model's signal minus the mean for the other signals. As a difference between two such
+scores, it can exceed one in magnitude. It is not the true-negative rate of a classifier.
 
-`evaluate_outcome_specificity` requires `own_truth` and every truth in
-`foreign_truths` to share the same mechanism (`kind`), have non-overlapping target
-features and equal target counts (groups for `estimand="group"`, features otherwise). Group membership
-sizes may differ; the matched-reference expectation accounts for those sizes.
-Specificity is chance-adjusted recovery for the model's signal minus the mean for the other signals.
-As a difference between adjusted scores, it can exceed one in magnitude.
+`own_truth` and every signal in `foreign_truths` must share the same features and signal
+structure (`kind`), have non-overlapping target features and equal target counts (groups for
+`estimand="group"`, features otherwise). Group membership sizes may differ; the
+matched-reference expectation accounts for those sizes.
+
+## Graph regions without edges
+
+`evaluate_graph_region` reports node coverage for every non-empty valid region, and edge
+coverage where the region has edges. If its induced graph has no edges, `edge_coverage`
+is `None` and `target_edge_count` is zero: an absent edge target is not zero recovery.
+Summaries must report how many regions have an evaluable edge denominator and must not
+replace unavailable edge coverage by zero.
 
 ## Ranking stability
 
-`rank_stability` compares two complete rankings. Jaccard overlap asks whether their leading
+`rank_stability` averages pairwise agreement across two or more complete rankings. Jaccard overlap asks whether their leading
 sets contain the same features. Spearman correlation compares ordering across the whole
-list. Rank-biased overlap gives more weight to agreement near the top.
+list. Rank-biased overlap (RBO) gives more weight to agreement near the top.
 
 For leading sets `A_k` and `B_k` of size `k`, Jaccard is
-`|A_k intersect B_k| / |A_k union B_k|`. The expected random
-intersection is `k^2 / |U|`. Spearman correlation uses the complete rankings and requires
-at least two features. Extrapolated rank-biased overlap is
-`(1-p) sum(d=1..D, p^(d-1) A_d) + p^D A_D`, where `A_d` is prefix overlap divided by `d`.
+`|A_k intersect B_k| / |A_k union B_k|`. For random rankings the expected size of the
+intersection is `k^2 / |U|`, where `U` is the set of all features. Spearman correlation
+uses the complete rankings and requires at least two features. Extrapolated RBO is
+`(1-p) sum(d=1..D, p^(d-1) A_d) + p^D A_D`, where `D` is the length of the rankings and `A_d`
+is the overlap of their first `d` features divided by `d`.
 The persistence parameter sets how strongly leading ranks are weighted. Its default `p=0.9`
 gives geometric expected inspection depth 10. This is the extrapolated score in
-[Webber et al., Equation 23](references.md#ranking-comparison).
+[Webber et al., Equation 23](references.md#ranking-comparison). For rankings with ties,
+use [`rank_biased_overlap`](metrics.md#consensus-and-rank-biased-overlap).
 
 ## Prediction and panels
 
-`evaluate_prediction` computes ROC AUC, average precision, log loss, R-squared or root mean
-squared error using scikit-learn. Supply finite, nonempty targets and predictions. ROC AUC
-requires both binary classes, average precision requires a positive observation, and
+`evaluate_prediction` scores supplied predictions with one metric: AUC, the area under the
+ROC curve (`metric="roc_auc"`), average precision, log loss, R-squared or root mean
+squared error, computed with scikit-learn. Supply finite, nonempty targets and predictions.
+AUC requires both binary classes, average precision requires a positive observation, and
 R-squared requires at least two observations with a varying target. Log loss uses binary
 labels and probabilities in `[0, 1]`, including when only one class is observed. Undefined
 metrics raise `ValueError`.
@@ -170,33 +181,33 @@ and root mean squared error.
 
 ## Signal reconstruction
 
-A selected substitute may predict the generating score well even when the exact contributor
-is absent. Reconstruction tests that possibility by learning a linear mapping from the panel
-to the known score. An out-of-sample R-squared of 0.4 means the panel explains 40% of its
-variation in the test sample, rather than finding 40% of the generating features.
+A selected correlate may predict the generating score, the number computed for each row
+from the generating features (`truth.signal`), even when the generating feature is absent.
+Reconstruction tests that possibility by learning a linear mapping from the panel to this
+score. An out-of-sample R-squared of 0.4 means the panel explains
+40% of its variation in the test sample, rather than finding 40% of the generating features.
 
 `evaluate_signal_reconstruction` fits median imputation and ordinary least squares on
-development rows, then measures linear reconstruction of the known signal on evaluation
+development rows, then measures linear reconstruction of the score on evaluation
 rows. An empty panel uses an intercept-only predictor. The result includes R-squared and
-root mean squared error; evaluation requires at least two observations and a varying signal.
+root mean squared error; evaluation requires at least two observations and a varying score.
 
 ## Repeated simulations
 
 `summarize_replicates` reports the mean, Monte Carlo standard error and a 95% t interval
 from at least two finite replicate estimates. For `R` independent replicates, the standard
 error is `sd(estimates)/sqrt(R)` and the interval is the mean plus/minus
-`t_(R-1,0.975)` times that standard error. These describe precision across simulations of
-the same design. Supply the number of failed runs through `failure_count` so they remain
-part of the summary.
-
+`t_(R-1,0.975)` times that standard error. These describe precision across simulated
+datasets of the same design;
 [Morris et al., Section 5.2](references.md#simulation-studies) explains why Monte Carlo
-uncertainty should accompany simulation results.
+uncertainty should accompany simulation results. Supply the number of failed runs through
+`failure_count` so they remain part of the summary.
 
 ### Paired procedure comparisons
 
-Use the same independently generated worlds for both procedures and identify them
-explicitly. `compare_paired_replicates` aligns by unique IDs before computing
-right-minus-left differences; it does not assume the input orders are equal.
+To compare two procedures, run both on the same independently generated simulated datasets
+and give each dataset an ID. `compare_paired_replicates` aligns by unique IDs before
+computing right-minus-left differences; it does not assume the input orders are equal.
 
 ```python
 from pyplasmode import compare_paired_replicates
@@ -210,25 +221,14 @@ comparison = compare_paired_replicates(
 print(comparison.summary.mean)  # 0.05
 ```
 
-Unmatched IDs raise by default. `allow_unmatched=True` explicitly uses the
+Unmatched IDs raise by default. `allow_unmatched=True` uses the
 intersection and reports unmatched counts. A `None` estimate marks a failed
-procedure, with per-arm and joint failure counts retained. The t interval is
+procedure; among matched pairs, the result counts failures in each arm and pairs with at
+least one failure. The t interval is
 conditional on complete successful pairs; selective failures may bias that
-conditional comparison, so report failure rates and their causes separately.
+comparison, so report failure rates and their causes separately.
 The function requires at least two complete pairs. A positive difference favours
 the right procedure for AUC but favours the left procedure for a loss metric.
-Refits or participants within one world are not independent simulation replicates.
-This function does not provide participant-level bootstrap confidence intervals.
-
-### Graph regions without edges
-
-`evaluate_graph_region` reports node coverage for every non-empty valid region.
-If its induced graph has no edges, `edge_coverage` is `None` and
-`target_edge_count` is zero: an absent edge target is not zero recovery. Summaries
-must report how many regions have an evaluable edge denominator and must not
-replace unavailable edge coverage by zero.
-
-
-For empirical inputs, the [tutorial's correlation-bin example](tutorial.md#matching-strata-on-empirical-measurements)
-constructs outcome-blind strata from measurements. Align the resulting tuple
-with the nomination's feature order before calling `evaluate_matched_recovery`.
+Refits or observations within one simulated dataset are not independent replicates;
+for uncertainty over observations with fixed models, use the
+[paired bootstrap](metrics.md#paired-bootstrap-and-discrimination-gap).

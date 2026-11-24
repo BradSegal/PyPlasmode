@@ -19,10 +19,9 @@ uv run check-wheel-contents dist/*.whl
 ```
 
 Add `--extra benchmark` to `uv sync` to run the synthetic Cox/ridge/XGBoost
-example and its integration test. Without those optional dependencies the
-integration test is explicitly skipped.
+example and its integration test. Without them the integration test is skipped.
 
-Run `python examples/validation_vignette.py --output validation-output` to regenerate the
+Run `uv run python examples/validation_vignette.py --output validation-output` to regenerate the
 synthetic validation figures and tables. The `validation` extra is included in the setup above.
 
 The local uv lock records your development environment. Supported dependency ranges are
@@ -30,9 +29,9 @@ listed in `pyproject.toml`.
 
 ## Changes and support
 
-Use the repository's issue tracker for bug reports, questions and feature proposals. For a bug,
+Use the issue tracker for bug reports, questions and feature proposals. For a bug,
 include dependency versions, the expected result and a small synthetic reproducer. Keep
-participant data and credentials out of reports. Send security-sensitive reports privately
+source data and credentials out of reports. Send security-sensitive reports privately
 to the repository maintainer.
 
 Add a focused regression test for bug fixes. Generator changes also need checks of their

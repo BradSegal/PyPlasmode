@@ -18,7 +18,7 @@ type TruthKind = Literal["null", "sparse", "correlated", "module", "interaction"
 
 @dataclass(frozen=True, slots=True)
 class RecoveryGroup:
-    """A direct feature and the explicitly admissible substitutes for its group."""
+    """A declared recovery group with an optional direct generating feature."""
 
     name: str
     direct_feature: str | None
@@ -46,7 +46,7 @@ class FeatureWeight:
 
 @dataclass(frozen=True, slots=True)
 class MaterializedTruth:
-    """The realised signal and mechanism-specific recovery targets."""
+    """The realised signal and recovery targets for its signal structure."""
 
     kind: TruthKind
     signal: NDArray[np.float64]
@@ -93,7 +93,7 @@ class MaterializedTruth:
 
 @dataclass(frozen=True, slots=True)
 class NullTruth:
-    """An outcome-generating mechanism independent of the features."""
+    """A zero generating score: no feature has an effect through the signal."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,7 +120,7 @@ class SparseTruth:
 
 @dataclass(frozen=True, slots=True)
 class CorrelatedTruth:
-    """One direct sentinel and admissible substitutes from each declared group."""
+    """A signal from one sentinel or the mean in each group of correlates."""
 
     group_names: tuple[str, ...]
     sentinels: tuple[str, ...] = ()
@@ -155,7 +155,7 @@ class ModuleTruth:
 
 @dataclass(frozen=True, slots=True)
 class InteractionTruth:
-    """A bounded pairwise product or threshold interaction sensitivity."""
+    """A pairwise feature product or joint threshold indicator."""
 
     features: tuple[str, str]
     operation: Literal["product", "threshold"] = "product"
@@ -326,17 +326,17 @@ def materialize_truth(
     seed: int,
     feature_sets: FeatureSets | None = None,
 ) -> MaterializedTruth:
-    """Materialise a declared mechanism on an empirical matrix.
+    """Materialise a declared signal structure on an empirical matrix.
 
     Args:
-        truth: Built-in mechanism or deterministic custom signal function.
+        truth: Built-in signal specification or deterministic custom signal function.
         population: Numeric feature matrix and ordered identifiers.
         seed: Non-negative integer controlling data-derived truth selection.
         feature_sets: Named memberships required by correlated and module truths.
 
     Returns:
-        Standardised latent signal and explicit recovery targets. The original
-        matrix is not modified. Null truth has a zero signal and no targets.
+        Standardised latent signal and explicit recovery targets. The input
+        matrix is unchanged. Null truth has a zero signal and no targets.
 
     Raises:
         ValueError: Invalid identities, weights or settings, unavailable or
@@ -361,7 +361,7 @@ def materialize_truth(
             standardized = _completed_standardized(population, required_features=features)
             selected = np.arange(len(features), dtype=np.int64)
         else:
-            if truth.count is None:  # Narrowing guard for static type checkers.
+            if truth.count is None:
                 raise RuntimeError("sparse truth count is missing")
             standardized = _completed_standardized(population)
             selected = _select_sparse(

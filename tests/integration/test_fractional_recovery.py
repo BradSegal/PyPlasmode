@@ -1,4 +1,4 @@
-"""Integrated mechanism-specific recovery controls."""
+"""Integration tests for recovery across signal structures."""
 
 import numpy as np
 import pytest

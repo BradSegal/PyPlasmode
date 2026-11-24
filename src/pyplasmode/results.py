@@ -29,7 +29,7 @@ class RankingEvaluation:
 
 @dataclass(frozen=True, slots=True)
 class GroupAtDepth:
-    """Admissible substitute-group recovery at one depth."""
+    """Recovery of declared feature groups at one ranking depth."""
 
     depth: int
     recovered_group_count: int
@@ -39,7 +39,7 @@ class GroupAtDepth:
 
 @dataclass(frozen=True, slots=True)
 class GroupEvaluation:
-    """Recovery of at least one declared member per substitute group."""
+    """Recovery of at least one eligible feature per declared group."""
 
     at_depth: tuple[GroupAtDepth, ...]
 
@@ -157,7 +157,7 @@ class PairedReplicateComparison:
 
 @dataclass(frozen=True, slots=True)
 class FractionalRecovery:
-    """Mechanism-specific recovery for one fractional nomination."""
+    """Recovery from one fractional feature selection against a specified target."""
 
     estimand: Literal["exact", "group", "module", "interaction"]
     value: float
@@ -169,7 +169,7 @@ class FractionalRecovery:
 
 @dataclass(frozen=True, slots=True)
 class MatchedRecovery:
-    """Observed recovery calibrated against an analytic matched reference."""
+    """Observed recovery and recovery above chance under a matched random reference."""
 
     estimand: Literal["exact", "group", "module", "interaction"]
     method: Literal["analytic"]

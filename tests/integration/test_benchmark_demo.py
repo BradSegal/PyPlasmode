@@ -12,7 +12,7 @@ import pytest
 
 @pytest.mark.integration
 def test_benchmark_demo(tmp_path: Path) -> None:
-    """All mechanisms, effects and models yield calibrated, auditable rows."""
+    """All signal structures, AUC targets and models yield calibrated results."""
     pytest.importorskip("sksurv")
     pytest.importorskip("xgboost")
     example = Path(__file__).parents[2] / "examples" / "benchmark_recovery_demo.py"

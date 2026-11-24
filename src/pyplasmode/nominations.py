@@ -176,16 +176,16 @@ def evaluate_fractional_recovery(
 
     Args:
         nomination: Feature membership probabilities, including tied scores.
-        truth: Materialized generating mechanism on the same feature universe.
+        truth: Materialized signal and recovery targets on the same feature universe.
         estimand: Exact, group, module, or interaction recovery definition.
         allow_subset: Permit a declared candidate subset. Unavailable targets retain
-            their original denominator and receive no recovery credit.
+            their place in the denominator and receive no recovery credit.
 
     Returns:
-        Bounded recovery with explicit truth and nomination support.
+        Bounded recovery with explicit truth and selection support.
 
     Raises:
-        ValueError: If the nomination and truth differ or the estimand has no target.
+        ValueError: If feature universes are incompatible or the estimand has no target.
     """
     if nomination.feature_ids != truth.feature_universe and not (
         allow_subset and set(nomination.feature_ids).issubset(truth.feature_universe)
@@ -469,7 +469,7 @@ def sample_matched_nominations(
     """Randomise feature selections within strata while preserving counts and ties.
 
     Args:
-        nomination: Observed feature-selection memberships and positive scores.
+        nomination: Observed selection memberships and the identities with positive scores.
         strata: A group label per feature, defined without outcomes or generating truth.
         draws: Positive number of independent random selections.
         seed: Non-negative random seed.
@@ -507,14 +507,14 @@ def evaluate_matched_recovery(
     """Compare observed recovery with expected recovery under matched random selection.
 
     Args:
-        nomination: Observed feature-selection memberships and positive scores.
+        nomination: Observed selection memberships and the identities with positive scores.
         truth: Materialized truth used only by the recovery evaluator.
-        estimand: Mechanism-specific recovery definition.
+        estimand: Recovery definition for the signal structure.
         strata: A group label per feature, defined without outcomes or generating truth.
 
     Returns:
-        Observed recovery, its analytically calculated random expectation,
-        and their difference.
+        Observed recovery, its analytic chance expectation, and recovery above
+        chance (observed minus expected).
 
     Raises:
         ValueError: If geometry or truth are invalid.
@@ -562,7 +562,7 @@ def _recovery_target_features(
         features = tuple(feature for group in truth.admissible_groups for feature in group.features)
     elif estimand == "module":
         features = tuple(item.feature for item in truth.weights)
-    else:  # pragma: no cover - exhaustive over RecoveryEstimand
+    else:
         raise ValueError(f"unsupported recovery estimand: {estimand}")
     if not features:
         raise ValueError("specificity requires a non-empty recovery target")
@@ -583,16 +583,17 @@ def evaluate_outcome_specificity(
     Args:
         nomination: Feature selection to evaluate unchanged against each signal.
         own_truth: Generating signal for the outcome used to fit the model.
-        foreign_truths: Other signals of the same mechanism and recovery-target count.
-        estimand: Mechanism-specific exact, group, module, or interaction recovery.
+        foreign_truths: Other signals with the same structure and recovery-target count.
+        estimand: Definition of exact, group, module, or interaction recovery.
         strata: Outcome-blind matching stratum for every candidate feature.
         allow_subset: Evaluate a declared subset against unchanged generating truths.
 
     Returns:
-        Own adjusted recovery, mean foreign adjusted recovery, and their difference.
+        Recovery above chance for the generating signal, its mean across the other
+        signals, and the difference between those two values.
 
     Raises:
-        ValueError: If truths differ in universe or mechanism, are absent, or overlap.
+        ValueError: If truths are missing, incompatible, or have overlapping targets.
     """
     if not foreign_truths:
         raise ValueError("specificity requires at least one foreign truth")

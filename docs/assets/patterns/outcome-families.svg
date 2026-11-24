@@ -7,11 +7,6 @@
    <ns2:Work>
     <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
     <dc:format>image/svg+xml</dc:format>
-    <dc:creator>
-     <ns2:Agent>
-      <dc:title>writing-tools</dc:title>
-     </ns2:Agent>
-    </dc:creator>
    </ns2:Work>
   </rdf:RDF>
  </metadata>

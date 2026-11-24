@@ -1,4 +1,4 @@
-"""Public AUROC-target specification and infeasibility contracts."""
+"""Public AUC target specification and infeasibility contracts."""
 
 import numpy as np
 import pytest

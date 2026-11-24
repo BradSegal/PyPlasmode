@@ -60,7 +60,7 @@ class PartitionSampleSizes:
 
 @dataclass(frozen=True, slots=True)
 class PartitionedPlasmode:
-    """Three generated roles with original empirical source-row lineage."""
+    """Three generated samples with indices into the empirical source population."""
 
     training: Plasmode
     validation: Plasmode
@@ -70,7 +70,7 @@ class PartitionedPlasmode:
     evaluation_source_indices: NDArray[np.int64]
 
     def __post_init__(self) -> None:
-        """Prove that no original source identity crosses generated roles."""
+        """Validate that source-row indices are disjoint across generated roles."""
         samples = (self.training, self.validation, self.evaluation)
         lineages = tuple(
             integer_indices(values, "generated source lineage")
@@ -120,7 +120,7 @@ def generate(
 
     Args:
         population: Source matrix of shape (observations, features).
-        truth: Mechanism defining latent signal and recovery targets.
+        truth: Specification defining the latent signal structure and recovery targets.
         outcome: Observable outcome targets and effect per signal standard deviation.
         sample_size: Positive number of generated rows.
         seed: Non-negative seed; separate child streams control rows, truth and outcome.
@@ -205,7 +205,7 @@ def _freeze_partition_truth(
 
 
 def _slice_outcome(outcome: GeneratedOutcome, rows: slice) -> GeneratedOutcome:
-    """Return one role from an outcome generated under a shared mechanism."""
+    """Return the outcomes for one role from a jointly generated sample."""
     if isinstance(outcome, BinaryGeneratedOutcome):
         return BinaryGeneratedOutcome(outcome.values[rows], outcome.calibration)
     if isinstance(outcome, ContinuousGeneratedOutcome):
@@ -241,18 +241,19 @@ def generate_partitioned(
 
     Args:
         partition: Prior source partition from ``partition_population``.
-        truth: Transferable built-in mechanism; custom callables are unsupported.
+        truth: Built-in signal specification shared across the three roles.
         outcome: Observable outcome targets over the combined generated population.
         sample_sizes: Positive training, validation and evaluation counts.
-        seed: Non-negative root seed for role sampling and mechanism generation.
+        seed: Non-negative root seed for role sampling, signal construction and outcome generation.
         sampling_method: Explicit with- or without-replacement policy within each role.
-        feature_sets: Required named groups or modules.
+        feature_sets: Named groups or modules, required for correlated and module truths.
 
     Returns:
-        Three plasmodes plus original source identities, disjoint across roles.
+        Three plasmodes with disjoint indices into the empirical source population.
         Truth identities are frozen on training source rows; sampled roles share
-        one signal scaling and outcome calibration. A role's realised rate can
-        differ from the combined-population target through sampling variation.
+        one signal scaling and outcome calibration. A role's expected rate can
+        differ from the combined-population target with its covariate distribution,
+        and its realised rate also varies with outcome sampling.
 
     Raises:
         ValueError: Invalid roles, unsupported custom truth, or infeasible generation.

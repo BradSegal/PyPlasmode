@@ -22,7 +22,7 @@ def saturating_signal(matrix, feature_ids, rng) -> ppm.CustomSignal:
 
 
 def signal_patterns() -> list[dict[str, object]]:
-    """Evaluate six library mechanisms on the same standardised feature grid."""
+    """Evaluate six signal structures on the same standardised feature grid."""
     axis = np.linspace(-2.5, 2.5, 41)
     axis /= np.std(axis)
     first, second = np.meshgrid(axis, axis)
@@ -54,7 +54,7 @@ def signal_patterns() -> list[dict[str, object]]:
 
 
 def correlated_recovery() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
-    """Compare known generating and substitute-first orders on one correlated group."""
+    """Compare rankings led by the generating feature or a correlate in one group."""
     rng = np.random.default_rng(73)
     matrix = rng.normal(size=(1_000, 6))
     matrix[:, 1] = 0.9 * matrix[:, 0] + np.sqrt(1 - 0.9**2) * matrix[:, 1]

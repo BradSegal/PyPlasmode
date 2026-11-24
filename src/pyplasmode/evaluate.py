@@ -203,7 +203,7 @@ def evaluate_signal_reconstruction(
     development_indices: ArrayLike,
     evaluation_indices: ArrayLike,
 ) -> SignalReconstructionEvaluation:
-    """Fit a maintained linear model and evaluate held-out latent-signal reconstruction."""
+    """Fit a linear reconstruction on development rows and score it on held-out rows."""
     matrix = np.asarray(X, dtype=np.float64)
     target = np.asarray(signal, dtype=np.float64)
     if matrix.ndim != 2 or target.shape != (matrix.shape[0],):
@@ -241,7 +241,7 @@ def evaluate_signal_reconstruction(
 def evaluate_prediction(
     target: ArrayLike, prediction: ArrayLike, *, metric: PredictionMetric
 ) -> PredictionEvaluation:
-    """Evaluate supplied predictions with one maintained standard metric."""
+    """Compute a supported prediction metric from supplied targets and predictions."""
     observed = np.asarray(target, dtype=np.float64)
     estimated = np.asarray(prediction, dtype=np.float64)
     if (
@@ -416,12 +416,12 @@ def compare_paired_replicates(
 ) -> PairedReplicateComparison:
     """Summarise right-minus-left differences after aligning replicate identities.
 
-    IDs must uniquely identify independent simulation worlds, not participants
-    or correlated refits. ``None`` explicitly marks failure; non-finite numeric
-    estimates are rejected. Unmatched IDs fail by default; opt-in intersection
-    reports exclusions. At least two successful pairs are required for a 95%
-    Monte Carlo t interval. With failures, its estimand is conditional on joint
-    success and may differ from the planned-world estimand. A positive difference
+    Each ID must uniquely identify an independent simulated dataset.
+    ``None`` marks a failed estimate. Non-finite numeric estimates raise an error.
+    IDs must match by default. Opt-in intersection reports exclusions. At least
+    two successful pairs are required for a 95% Monte Carlo t interval. With
+    failures, the comparison is conditional on joint success and can differ
+    from the comparison across all planned datasets. A positive difference
     favours the right procedure only for metrics where larger values are better.
     """
     left = _replicate_values(left_ids, left_values)
