@@ -1,17 +1,17 @@
 # PyPlasmode
 
-PyPlasmode lets you test how well a modelling procedure predicts outcomes and identifies
-the features behind them. You supply a numeric feature matrix, specify a signal and generate
-an outcome. Because the generating features are known, you can compare a model's feature
-ranking with them.
+PyPlasmode lets you evaluate how well a modelling procedure predicts outcomes and identifies the
+features behind them. You provide a numeric feature matrix, define a signal and simulate an
+outcome. Because the generating features are known, you can compare a model's feature ranking
+with them.
 
-This combination of observed features and simulated outcomes is a *plasmode*. It retains
-the relationships in your measurements while letting you vary the signal, effect size and
-outcome frequency. The library was developed for biomarker benchmarking, but accepts numeric
-tabular data from other applications.
+This combination of observed features and simulated outcomes is a *plasmode*. It preserves
+relationships in your measurements while allowing you to vary the signal, effect size and
+outcome frequency. The library supports biomarker benchmarking and accepts numeric tabular data
+from other applications.
 
-Keep model fitting, tuning and explanation in your usual tools. PyPlasmode generates the
-data and evaluates the predictions, rankings and selected feature sets you return.
+Use your existing tools for model fitting, tuning and explanation. PyPlasmode simulates the data
+and evaluates the predictions, rankings and selected feature sets you return.
 
 Start with the [feature-selection tutorial](tutorial.md) to fit a model, rank its features
 and compare their recovery with random selection. The [visual gallery](gallery.md) shows
@@ -29,12 +29,12 @@ For the survival and validation examples, add the optional estimators and plotti
 with `python -m pip install "pyplasmode[validation]"`.
 
 Three scripts run locally on synthetic inputs. The
-[quickstart](https://github.com/BradSegal/PyPlasmode/blob/main/examples/quickstart.py)
-reports test-set AUC (area under the ROC curve) and the fraction of generating features recovered.
-The [survival example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/survival.py)
-sets event risks at five and ten years and fits a Cox model to the generated follow-up.
-The [custom example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/custom_signal.py)
-uses a signal whose response levels off at extreme feature values.
+[quickstart](https://github.com/BradSegal/PyPlasmode/blob/main/examples/quickstart.py) reports
+test-set AUC (area under the ROC curve) and the fraction of generating features recovered. The
+[survival example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/survival.py) sets
+event risks at five and ten years and fits a Cox model to the generated follow-up. The
+[custom example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/custom_signal.py)
+uses a signal whose response plateaus at extreme feature values.
 
 ## A complete comparison
 
@@ -51,8 +51,8 @@ variation. **Recovery** is the fraction of the generating features in a selectio
 5. Evaluate predictions and [feature recovery](evaluation.md), including tied importance scores.
 6. Repeat with independent seeds and summarise the paired results.
 
-Compare methods on the same generated samples. Vary the signal, effect size, sample size
-or censoring to explore the conditions that matter for your application. The
+Compare methods on the same generated samples. Vary the signal, effect size, sample size, or
+censoring to explore the conditions that matter for your application. The
 [methods guide](methods.md) explains how these choices define the simulation.
 
 ## Return types

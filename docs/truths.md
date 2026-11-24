@@ -7,10 +7,10 @@ row, and the features or groups a selection procedure should recover. Pair it wi
 
 ![Five signal structures and their corresponding recovery targets](assets/concepts/signal-recovery.png)
 
-The diagram pairs each signal you can create with what you ask the model to recover.
-It labels generating features "drivers" and the generating score a "latent disease state".
-The [tutorial](tutorial.md) constructs sparse and correlated signals on the same
-measurements and shows the corresponding evaluations.
+The diagram pairs each signal you can create with what you ask the model to recover. It labels
+the generating features "drivers" and the generating score a "latent disease state". The
+[tutorial](tutorial.md) constructs sparse and correlated signals on the same measurements and
+shows the corresponding evaluations.
 
 ## Null
 
@@ -44,9 +44,9 @@ it with group recovery or weighted recovery. It has no individual sentinels:
 ## Distributed
 
 A distributed signal spreads the generating score across all members of a feature set.
-`ModuleTruth` combines them with specified weights. Evaluate the selected panel by its
-weighted recovery, the share of the absolute generating weight it covers, or its ability to
-reconstruct the generating score on held-out data.
+`ModuleTruth` combines them with specified weights. Evaluate the selected panel by its weighted
+recovery, the fraction of absolute generating weight it covers, or how well it reconstructs the
+generating score on held-out data.
 
 ## Interaction
 

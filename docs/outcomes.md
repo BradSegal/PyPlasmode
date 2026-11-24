@@ -1,15 +1,15 @@
 # Outcomes in observable units
 
-Specify outcomes using probabilities, means, rates or event risks. PyPlasmode calibrates
-the distribution parameters and records them in `CalibrationResult`. Effect sizes refer
-to one standard deviation of the generating score: the number computed for each row from
-the generating features.
+Specify outcomes by probabilities, means, rates or event risks. PyPlasmode calibrates
+distribution parameters and stores them in `CalibrationResult`. Effect sizes refer to one
+standard deviation of the generating score, the number calculated per row from the generating
+features.
 
 ## Shared example population
 
-The examples use four synthetic features, with A and B as the generating features. Run
-this setup once, then each outcome family below. Each generated outcome has one response
-per sampled row.
+The examples use four synthetic features, with A and B as the generating features. Run this
+setup once, then each outcome family below. Each generated outcome has one response for each
+sampled row.
 
 ```python
 import numpy as np
@@ -45,8 +45,8 @@ print(binary.values.shape, round(float(binary.values.mean()), 3))
 # (10000,) 0.152
 ```
 
-This returns 10,000 zero/one labels with an event fraction near 0.15. The odds of an
-event double for a one-standard-deviation increase in the generating score.
+This returns 10,000 zero/one labels with an event fraction close to 0.15. Event odds double for
+a one-standard-deviation increase in the generating score.
 
 ## Continuous
 
@@ -115,10 +115,10 @@ are close to the requested quarters/half/quarter.
 
 ## Time to event
 
-Specify event risks at times relevant to your application rather than choosing distribution
-parameters. For example, risks of 10% at five years and 25% at ten years allow the baseline
-event rate to change after year five. PyPlasmode uses a constant rate within each interval,
-giving a piecewise-exponential model that matches those cumulative risks.
+Specify event risks at times relevant to your application and let PyPlasmode determine the
+distribution parameters. For example, risks of 10% at five years and 25% at ten years allow the
+baseline event rate to change after year five. PyPlasmode uses a constant rate within each
+interval, giving a piecewise-exponential model that matches these cumulative risks.
 
 `TimeToEventOutcome` accepts cumulative event risks at one or more `days(...)` or `years(...)`
 horizons, either a hazard ratio or `target_auc`, and optional cumulative censoring risks at

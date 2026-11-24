@@ -22,8 +22,8 @@ comparison paired.
 | How far is recovery above chance? | `evaluate_matched_recovery` |
 | Does a selection prefer its own signal to other signals? | `evaluate_outcome_specificity` |
 
-[Metrics](metrics.md) covers `pyplasmode.metrics`: selection stability, rank agreement
-with ties, consensus rankings, AUC under censoring, bootstrap differences and the
+[Metrics](metrics.md) covers `pyplasmode.metrics` functions for selection stability, rank
+agreement with ties, consensus rankings, AUC under censoring, bootstrap differences and the
 discrimination gap.
 
 ## Rankings and scores
@@ -48,9 +48,9 @@ or interaction recovery from these memberships.
 
 ## Feature and group recovery
 
-Recovery is the fraction of the generating features, of their groups or of their weight
-that a selection contains. Suppose A and B generate the outcome, but a model's top two
-features are A and C.
+Recovery is the fraction of the generating features, their groups or their weight that a
+selection contains. Suppose A and B generate the outcome, but a model's top two features are A
+and C.
 
 ```python
 import numpy as np
@@ -108,12 +108,11 @@ on average, even if the ranking contains no information. Recovering 40% is there
 a large group is easier to hit randomly than a small one. A matched reference keeps such
 properties comparable, so improvement does not merely reflect an easier selection task.
 
-`evaluate_matched_recovery` returns recovery above chance: observed recovery minus its
-expectation under random feature assignment (`observed_recovery`, `expected_recovery` and
-`chance_adjusted_recovery`). You supply strata: groups of features with similar properties,
-defined without using the signal or evaluation outcomes. The reference retains the number
-of positive scores in each stratum and the selection's membership weights, while reassigning
-them to feature identities within that stratum.
+`evaluate_matched_recovery` returns recovery above chance, the observed recovery minus its
+expectation under random feature assignment (`observed_recovery`, `expected_recovery`, and
+`chance_adjusted_recovery`). Supply strata of features with similar properties, defined without
+reference to the signal or evaluation outcomes. Within each stratum the reference reassigns
+feature identities while preserving the positive-score count and selection membership weights.
 
 The [tutorial](tutorial.md#compare-with-matched-chance) builds strata for correlated pairs
 and independent features, runs the comparison and interprets the result. For empirical
@@ -129,10 +128,10 @@ recovery coincide and recovery above chance is zero.
 
 ### Outcome specificity
 
-`evaluate_outcome_specificity` asks whether a selection prefers the signal used to fit
-the model over other specified signals. Specificity is recovery above chance for the
-model's signal minus the mean for the other signals. As a difference between two such
-scores, it can exceed one in magnitude. It is not the true-negative rate of a classifier.
+`evaluate_outcome_specificity` asks whether a selection prefers the signal used to fit the model
+over other specified signals. Specificity subtracts mean recovery above chance for those signals
+from recovery above chance for the model's signal. Its magnitude can exceed one. Classifier
+specificity measures the true negative rate.
 
 `own_truth` and every signal in `foreign_truths` must share the same features and signal
 structure (`kind`), have non-overlapping target features and equal target counts (groups for
@@ -149,9 +148,9 @@ replace unavailable edge coverage by zero.
 
 ## Ranking stability
 
-`rank_stability` averages pairwise agreement across two or more complete rankings. Jaccard overlap asks whether their leading
-sets contain the same features. Spearman correlation compares ordering across the whole
-list. Rank-biased overlap (RBO) gives more weight to agreement near the top.
+`rank_stability` averages pairwise agreement across two or more full rankings. Jaccard overlap
+compares their leading sets. Spearman correlation compares ordering across the entire list.
+Rank-biased overlap (RBO) weights agreement near the top more heavily.
 
 For leading sets `A_k` and `B_k` of size `k`, Jaccard is
 `|A_k intersect B_k| / |A_k union B_k|`. For random rankings the expected size of the
@@ -181,11 +180,11 @@ and root mean squared error.
 
 ## Signal reconstruction
 
-A selected correlate may predict the generating score, the number computed for each row
-from the generating features (`truth.signal`), even when the generating feature is absent.
-Reconstruction tests that possibility by learning a linear mapping from the panel to this
-score. An out-of-sample R-squared of 0.4 means the panel explains
-40% of its variation in the test sample, rather than finding 40% of the generating features.
+A selected correlate may predict the generating score, the number computed for each row from the
+generating features (`truth.signal`), even if the generating feature is absent. Reconstruction
+tests this by learning a linear mapping from the panel to the score. An out-of-sample R-squared
+of 0.4 means the panel explains 40% of the score's variation in the test sample. The fraction of
+generating features found is a separate measure.
 
 `evaluate_signal_reconstruction` fits median imputation and ordinary least squares on
 development rows, then measures linear reconstruction of the score on evaluation

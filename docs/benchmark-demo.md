@@ -14,8 +14,8 @@ python -m pip install "pyplasmode[benchmark]"
 python benchmark_recovery_demo.py --output benchmark-results.csv
 ```
 
-The extra is tested on Python 3.12–3.15 on Linux, with Windows and macOS covered
-by CI on Python 3.13.
+The extra is tested on Python 3.12-3.15 on Linux, with Windows and macOS covered by CI on Python
+3.13.
 
 The default is 3,000 rows and 120 features, with one numerical thread. Allow a
 few minutes on a laptop CPU. `--rows 1000` provides a smaller demonstration;
@@ -50,19 +50,17 @@ with no earlier censoring. Calibration precedes outcome sampling, so the realise
 held-out value varies around the request. Common random draws
 are used across settings.
 
-A fixed 60:40 split separates training and evaluation. Scaling is learnt on
-training features only. Cox uses all observed event times with L2 penalty 1.
-Ridge uses ten-year event indicators with penalty 10. XGBoost uses the same
-indicators, 80 depth-two trees, learning rate 0.05 and one CPU thread. There is
-no hyperparameter search. The ridge and XGBoost labels are fully observed only
-because there is no early censoring.
+A fixed 60:40 split separates training and evaluation. Scaling is fitted on training features
+only. Cox uses all observed event times with L2 penalty 1. Ridge uses ten-year event indicators
+with penalty 10. XGBoost uses the same indicators with 80 depth-two trees, learning rate 0.05
+and one CPU thread. No hyperparameter search is performed. Ridge and XGBoost labels are fully
+observed only because there is no early censoring.
 
 ## Reading the output
 
-`AUROC` is the ten-year cumulative/dynamic AUC from
-`pyplasmode.metrics.cumulative_dynamic_auc`, using the training censoring
-distribution. With the chosen follow-up this
-equals ordinary binary AUC at ten years.
+`AUROC` is the ten-year cumulative/dynamic AUC from `pyplasmode.metrics.cumulative_dynamic_auc`,
+using the training censoring distribution. With the chosen follow-up it equals standard binary
+AUC at ten years.
 
 Absolute standardised coefficients rank Cox and ridge features; XGBoost uses
 gain importance. `nomination_from_scores` allocates boundary ties fractionally

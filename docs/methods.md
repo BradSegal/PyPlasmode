@@ -12,10 +12,9 @@ the comparison, [Morris et al.](references.md#simulation-studies) introduce the 
 
 ![Observed measurements supply realistic features; a specified signal supplies the recovery target](assets/concepts/plasmode-workflow.png)
 
-The figure shows a biomarker example, in which predictions are compared with the generated
-outcomes and selected features with the known signal. The same comparison applies to any
-numeric feature matrix: prediction accuracy and feature recovery measure different parts of
-the procedure.
+In the biomarker example, the figure compares predictions with generated outcomes and selected
+features with the known signal. The same comparison applies to any numeric feature matrix.
+Prediction accuracy and feature recovery measure different aspects of the procedure.
 
 Generation has three steps:
 
@@ -26,29 +25,29 @@ Generation has three steps:
 3. Calibrate the outcome model to the requested marginal targets and draw the outcomes.
 
 You can then apply your usual preprocessing, model fitting, hyperparameter search and
-explanation tools. PyPlasmode's evaluators take the resulting predictions and feature selections.
+explanation tools. PyPlasmode's evaluators take the resulting predictions and feature
+selections.
 
 ## Correlation and missingness
 
-Complete-row resampling draws from the joint empirical distribution, retaining observed
-feature relationships and missingness patterns. The source population therefore determines
-the combinations available to the simulation. The signal and outcome specification determine
-the association being studied.
+Complete-row resampling samples from the joint empirical distribution, preserving relationships
+between features and missingness patterns. The source population determines which combinations
+are possible in the simulation. The signal and outcome specification determine the association
+being studied.
 
 ## Training, validation and test samples
 
 `partition_population` splits source rows before resampling. `generate_partitioned` samples
-within those partitions and returns the original row indices in `training_source_indices`,
-`validation_source_indices` and `evaluation_source_indices`; each sample's own `source_indices`
-counts within its partition. A source row can occur repeatedly within a partition when sampling
-with replacement, but cannot occur in both training and evaluation. Automatic selection of
-sparse generating features uses training source rows. An automatically chosen generating member
-of a group is drawn at random from the group and checked on training source rows. The same
-features are then used in every partition.
+within these partitions and returns original row indices in `training_source_indices`,
+`validation_source_indices` and `evaluation_source_indices`. Each sample's `source_indices` are
+indices within its partition. Sampling with replacement can repeat a row within a partition. A
+source row cannot occur in both training and evaluation. Automatic selection of sparse
+generating features uses training source rows. An automatically selected generating member is
+drawn at random from its group and checked on training source rows. The same features are used
+for all partitions.
 
-Each row is treated as a sampling unit. If several rows belong to one person or other
-cluster, arrange the split at that level before generation. Row-level splitting alone
-does not keep related observations together.
+Each row is a sampling unit. If you have multiple rows per person or cluster, split at that
+level before generation. Row-level splitting alone does not keep related observations together.
 
 The generated partitions share one scaling of the generating score and one outcome
 calibration, computed over their combined covariates, so the same signal generates the
@@ -73,8 +72,8 @@ by a weight. Suppose features A and B have weights 2 and -1. An observation with
 `A=1` and `B=0.5` has score `s = 2*1 - 0.5 = 1.5`. Increasing A raises the score;
 increasing B lowers it.
 
-A *sentinel* is the API's name for a group's generating feature; the group's other members
-are its *correlates*.
+A *sentinel* is what the API calls a group's generating feature. The other members are its
+*correlates*.
 
 | Signal structure | How to construct the score | What it tests |
 | --- | --- | --- |
@@ -96,11 +95,11 @@ directly when the hypothesis concerns particular features.
 
 ## Numerical calibration and random variation
 
-Calibration matches the expected outcome across the sampled rows to your requested target.
-For example, a binary probability of 0.15 means an average event probability of 15%, not
-exactly 15% events in every draw. The [outcome guide](outcomes.md#calibration-equations) gives
-the expectation equation for each family; where one has no closed form, SciPy's bracketed
-root finder solves it.
+Calibration matches the expected outcome across sampled rows to your target. A binary
+probability of 0.15 means an average event probability of 15%. The fraction of events can vary
+across draws. The [outcome guide](outcomes.md#calibration-equations) gives each family's
+expectation equation. SciPy's bracketed root finder solves equations without a closed-form
+solution.
 
 Binary and ordinal intercepts use a logit bracket of at least `[-50, 50]`, widened as needed
 for the target and offsets; hazard calibration expands a non-negative bracket geometrically.
@@ -115,5 +114,6 @@ independent replicates to estimate performance and Monte Carlo uncertainty.
 
 The [metrics guide](metrics.md) defines selection stability, consensus rankings and AUC (area
 under the ROC curve) under censoring. The [calibration guide](calibration.md) explains how a
-target AUC of the generating score determines an odds or hazard ratio. Expected and realised
-AUC are reported separately; a rare outcome may have substantial realised sampling variation.
+target AUC of the generating score determines an odds or hazard ratio. Expected and realised AUC
+are reported separately. For a rare outcome there may be substantial realised sampling
+variation.

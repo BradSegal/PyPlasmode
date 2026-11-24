@@ -1,6 +1,6 @@
 # Visual gallery
 
-The gallery shows how signals, feature relationships and outcome models shape a
+The gallery shows how signals, feature relationships and outcome models influence a
 feature-selection benchmark. All examples use synthetic inputs.
 
 ## Different signals, the same features
@@ -13,10 +13,10 @@ generating features: **a**, no signal; **b**, P1 alone; **c**, the sum
 of P1 and P2; **d**, their product; **e**, a joint threshold requiring both features to be
 positive; **f**, the custom function `tanh(P1) + 0.5*tanh(P2)`.
 
-The sparse score changes along one axis. The distributed score changes with both features.
-The product depends on their combination, while the threshold and custom examples introduce
-abrupt and saturating responses. Use these signal structures to test the kinds of
-relationships your method should detect. See [Generating signals](truths.md).
+The sparse score varies along one axis. The distributed score varies with both features. The
+product depends on their combination. The threshold and custom examples introduce abrupt and
+saturating responses. Use these signal structures to test relationships your method should
+capture. See [Generating signals](truths.md).
 
 [PDF](assets/patterns/signal-shapes.pdf) | [SVG](assets/patterns/signal-shapes.svg) |
 [Source data](assets/patterns/signal-shapes.csv)
@@ -33,9 +33,9 @@ example orders:
 - **Generator first:** P1, P2, P3, P4, P5, P6.
 - **Substitute first** (a correlate first): P2, P4, P5, P6, P3, P1.
 
-Both orders find the relevant group immediately, but only the first finds the generating
-feature immediately. Choose exact or group recovery according to what counts as a useful
-discovery in your experiment. The curves are calculated with `evaluate_ranking` and
+Both orders identify the relevant group at the first rank, but only the first order identifies
+the generating feature there. Choose exact or group recovery based on what counts as a useful
+discovery in your experiment. The curves are computed using `evaluate_ranking` and
 `evaluate_groups`.
 
 [PDF](assets/patterns/correlated-recovery.pdf) | [SVG](assets/patterns/correlated-recovery.svg) |
@@ -76,5 +76,5 @@ python -m pip install pyplasmode
 python pattern_gallery.py --output gallery-data
 ```
 
-The script writes the tables used above. Adapt its signal and outcome settings, then use
-the tables in your preferred plotting library.
+The script writes the tables used above. Modify its signal and outcome settings, then use the
+tables with your preferred plotting library.

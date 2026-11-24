@@ -1,12 +1,11 @@
 # Calibrating to a target AUC
 
-Use `target_auc` when the intended simulation difficulty is easier to specify
-than an odds or hazard ratio. The target is the AUC (area under the ROC curve) of
-the generating score: the discrimination attainable when the source of risk is
-known, reported as `oracle_auc`. A model fitted to finite training data will usually
-have lower held-out AUC. The generator solves a non-negative coefficient for the
-generating score, so the resulting ratio is at least one per standard deviation of
-that score, while preserving the requested marginal probability or event risks.
+Use `target_auc` when simulation difficulty is easier to specify than an odds or hazard ratio.
+The target is the AUC (area under the ROC curve) of the generating score, the discrimination
+attainable when the source of risk is known, reported as `oracle_auc`. A model fitted on finite
+training data will typically have lower held-out AUC. The generator solves for a non-negative
+coefficient for the score, giving a ratio of at least one per standard deviation of the
+generating score while maintaining the requested marginal probability or event risks.
 
 ```python
 import numpy as np
@@ -58,14 +57,12 @@ coefficient, the intercept or baseline hazard is recalibrated to the requested
 marginal risk. Brent root-finding then matches the expected AUC of the
 generating score.
 
-The expectation integrates case/control pairs over the empirical distribution of
-the generating score, with half credit for ties. It uses independent draws from that
-distribution, including draws of the same source row. `CalibrationResult.oracle_auc`
-records this achieved expectation; `target_auc` records the request. The AUC
-realised in one outcome sample will
-vary with the seed, sample size, event count and censoring. The solved effect is
-deterministic for a given generating score and specification; repeating the generator
-with the same seed also repeats the outcomes.
+The expectation is over case/control pairs drawn independently from the empirical distribution
+of the generating score. The same source row can be drawn twice, and ties receive half credit.
+`CalibrationResult.oracle_auc` records the achieved expectation and `target_auc` the request.
+AUC realised in one outcome sample varies with the seed, sample size, event count and censoring.
+The solved effect is deterministic for a given generating score and specification. Rerunning
+with the same seed repeats the outcomes.
 
 `generate_partitioned` calibrates once on the combined partition covariates,
 so its returned samples share one solved effect. Calling `generate` separately

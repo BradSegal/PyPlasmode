@@ -12,13 +12,13 @@ python validation_vignette.py --output validation-output
 ```
 
 The output includes CSV summaries, a PDF/SVG figure and a JSON description of the simulation
-design following ADEMP: aims, data-generating mechanisms, estimands, methods and performance
-measures. See [Morris et al.](references.md#simulation-studies) for the framework.
+design following ADEMP (aims, data-generating mechanisms, estimands, methods and performance
+measures), the framework described by [Morris et al.](references.md#simulation-studies).
 
 ## Reference run
 
-The reference run separates three possible failures: generating the wrong outcome,
-scoring a ranking incorrectly, and finding apparent structure when no signal is present.
+The reference run separates three possible failure modes: generating the wrong outcome, scoring
+a ranking incorrectly, and finding apparent structure when no signal is present.
 
 1. **Create a population.** Generate 20,000 rows and 100 independent Gaussian features.
    These exchangeable features provide a simple reference in which no feature has an
@@ -61,7 +61,7 @@ sample sizes, data-generating mechanisms and seeds used to generate them.
 
 Unit tests cover input handling and numerical calculations. Statistical tests check
 distributional properties and chance expectations. Integration tests combine sampling,
-generation and evaluation across outcome families, including null signals and missing data.
+generation, and evaluation across outcome families, including null signals and missing data.
 
 | Component | Reference calculation | Additional cases |
 | --- | --- | --- |
@@ -74,16 +74,15 @@ generation and evaluation across outcome families, including null signals and mi
 | Fractional group and interaction recovery | Combinatorial and sampled references | Ties, zero scores and invariant references |
 | Stability and reconstruction | Prefix-overlap formula and standard regression | Small samples and constant targets |
 
-Matched recovery tests compare analytic expectations with hypergeometric and sampled
-references. Outcome-specificity tests compare a selection against different, disjoint signals.
+Matched recovery tests compare analytic expectations to hypergeometric and sampled references.
+Outcome specificity tests compare a selection against different, disjoint signals.
 
-The tests of `pyplasmode.metrics` include exact enumeration of boundary ties, chance-level
-selection stability and rank overlap under exchangeable rankings, consensus
-from noisy refits, weighted-pair AUC calculations, recovery of uncensored
-discrimination under independent censoring, shared bootstrap
-intervals and the discrimination gap. Tests of calibration to a target AUC cover
-12 binary and 36 survival settings; their sample sizes and tolerances are given
-in the [calibration guide](calibration.md). The executable
+`pyplasmode.metrics` tests include exact enumeration of boundary ties, chance-level selection
+stability and rank overlap under exchangeable rankings, consensus from noisy refits, weighted
+pair AUC calculations, recovery of uncensored discrimination under independent censoring, shared
+bootstrap intervals, and the discrimination gap. Target AUC calibration tests cover 12 binary
+and 36 survival settings, with sample sizes and tolerances listed in the
+[calibration guide](calibration.md). The executable
 [metrics and calibration example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/metrics_calibration.py)
 combines these functions on synthetic scores.
 

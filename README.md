@@ -1,16 +1,16 @@
 # PyPlasmode
 
 PyPlasmode tests prediction and feature selection against a known signal. It combines your
-feature data with simulated outcomes, so you can measure both how accurately a model predicts
-and how well it identifies the features used to generate those outcomes.
+feature data with simulated outcomes to measure how accurately a model predicts them and how
+well it identifies the generating features used to produce them.
 
-A plasmode uses observed measurements to retain realistic feature relationships while you
+A plasmode uses observed measurements to maintain realistic feature relationships while you
 control how the outcome is generated. The library was built for biomarker benchmarking and
-accepts any numeric matrix of observations and named features, including the synthetic
-matrices used in the examples below.
+accepts any numeric matrix of observations and named features, including the synthetic matrices
+below.
 
-Use it with your existing modelling workflow: generate a dataset, fit and tune your models,
-then evaluate their predictions, feature rankings or selected panels.
+You can integrate it with your existing modelling workflow. Generate a dataset, fit and tune
+your models, then evaluate their predictions, feature rankings, or selected panels.
 
 [![From observed measurements to simulated outcomes, model predictions and feature recovery](https://raw.githubusercontent.com/BradSegal/PyPlasmode/main/docs/assets/concepts/plasmode-workflow.png)](https://bradsegal.github.io/PyPlasmode/methods/)
 
@@ -84,9 +84,8 @@ simulated dataset before computing paired differences, and counts failures among
 pairs. See
 [paired evaluation](https://bradsegal.github.io/PyPlasmode/evaluation/#paired-procedure-comparisons).
 
-Source rows are split before resampling, keeping training, validation and test
-rows separate. This example uses a fixed model; the validation sample is available for
-hyperparameter tuning.
+Source rows are split before resampling to keep training, validation and test rows disjoint.
+This example uses a fixed model. The validation sample is available for tuning hyperparameters.
 
 ## What can be varied
 

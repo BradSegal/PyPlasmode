@@ -1,9 +1,9 @@
 # Metrics
 
-`pyplasmode.metrics` measures agreement between repeated feature selections, AUC (area
-under the ROC curve) under censoring, and differences between two methods on the same
-observations. Its functions accept arrays and selections; they do not fit models. Align
-features and observations before calling an array-based metric.
+`pyplasmode.metrics` measures agreement between repeated feature selections, AUC (area under the
+ROC curve) under censoring and differences between two methods on the same observations. Its
+functions take arrays and selections without fitting models. Align features and observations
+before using an array-based metric.
 
 ## Selection stability
 
@@ -36,8 +36,8 @@ cap maximum stability below one, even when the smaller selections are nested.
 
 ## Consensus and rank-biased overlap
 
-`consensus_ranking` combines the importance scores from several refits into one ranking;
-`rank_biased_overlap` (RBO) compares two rankings that may contain ties.
+`consensus_ranking` merges the importance scores from several refits into a single ranking, and
+`rank_biased_overlap` (RBO) compares two rankings with possible ties.
 
 `consensus_ranking(features, scores, depth=...)` orders features by mean fractional
 inclusion in the leading list, then median rank among refits with positive

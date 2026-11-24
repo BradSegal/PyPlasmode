@@ -1,7 +1,8 @@
 # References
 
-These sources describe plasmode simulation, simulation-study design, ranking comparison and selection stability.
-PyPlasmode's own numerical checks and reference results are documented in [Validation](validation.md).
+These references describe plasmode simulation, simulation study design, ranking comparison and
+selection stability. PyPlasmode's numerical checks and reference results are documented in
+[Validation](validation.md).
 
 ## Plasmode simulation
 
@@ -10,7 +11,7 @@ PyPlasmode's own numerical checks and reference results are documented in [Valid
   4(6), e1000098 (2008). [doi:10.1371/journal.pgen.1000098](https://doi.org/10.1371/journal.pgen.1000098).
   Uses data derived from real experiments, with known simulation structure, to compare
   false-discovery methods: the conceptual basis for the plasmode approach.
-- Schreck N, Slynko A, Saadati M, Benner A. Statistical plasmode simulations: Potentials,
+- Schreck N, Slynko A, Saadati M, Benner A. Statistical plasmode simulations–Potentials,
   challenges and recommendations. *Statistics in Medicine* 43(9), 1804-1825 (2024).
   [doi:10.1002/sim.10012](https://doi.org/10.1002/sim.10012).
   Describes resampling covariates and generating outcomes from a specified model, including
@@ -28,7 +29,7 @@ PyPlasmode's own numerical checks and reference results are documented in [Valid
 ## Ranking comparison
 
 - Webber W, Moffat A, Zobel J. A similarity measure for indefinite rankings.
-  *ACM Transactions on Information Systems* 28(4), 1-38 (2010).
+  *ACM Transactions on Information Systems* 28(4), Article 20, 38 pp. (2010).
   [doi:10.1145/1852102.1852106](https://doi.org/10.1145/1852102.1852106).
   Equation 23 gives the extrapolated rank-biased overlap, which PyPlasmode applies to
   complete, equal-length rankings, and Equation 28 the treatment of ties. The equation
@@ -41,8 +42,8 @@ PyPlasmode's own numerical checks and reference results are documented in [Valid
 - Nogueira S, Sechidis K, Brown G. On the Stability of Feature Selection Algorithms.
   *Journal of Machine Learning Research* 18(174), 1–54 (2018).
   [Article](https://jmlr.org/papers/v18/17-514.html). Definition 4 supplies
-  chance-corrected selection stability; the tie extension integrates independent
-  binary resolutions.
+  chance-corrected stability for binary selections. PyPlasmode extends the measure by
+  integrating independent binary resolutions of ties.
 - Heagerty PJ, Lumley T, Pepe MS. Time-dependent ROC curves for censored survival data and
   a diagnostic marker. *Biometrics* 56(2), 337-344 (2000).
   [doi:10.1111/j.0006-341X.2000.00337.x](https://doi.org/10.1111/j.0006-341X.2000.00337.x).
