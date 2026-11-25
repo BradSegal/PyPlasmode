@@ -4,22 +4,34 @@ Contributions to generators, evaluation functions, documentation and examples ar
 For a new signal or outcome family, describe the intended use and mathematical definition
 in an issue before implementing it.
 
-From a checkout, install a supported Python version (3.12-3.15) and uv, then run:
+Install a supported Python version (3.12-3.15) and uv. From the repository root, set up the
+environment with the validation examples and the documentation tools:
 
 ```bash
 uv sync --extra validation --group docs
+```
+
+Add `--extra benchmark` to run the synthetic Cox/ridge/XGBoost example
+(`examples/benchmark_recovery_demo.py`) and its integration test, which is otherwise skipped.
+
+Before opening a pull request, run the checks that CI runs:
+
+```bash
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src/pyplasmode
 uv run mkdocs build --strict
+```
+
+Before a release, also build the distributions into an empty `dist/` and check them:
+
+```bash
+rm -rf dist
 uv run python -m build
 uv run twine check --strict dist/*
 uv run check-wheel-contents dist/*.whl
 ```
-
-Add `--extra benchmark` to `uv sync` to run the synthetic Cox/ridge/XGBoost
-example and its integration test. Without them the integration test is skipped.
 
 Run `uv run python examples/validation_vignette.py --output validation-output` to regenerate the
 synthetic validation figures and tables. The `validation` extra is included in the setup above.

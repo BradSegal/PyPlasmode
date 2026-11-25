@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+Documentation only. No executable code changed.
+
+### Changed
+
+- Guide sections that a new reader could not follow are rewritten with worked examples: the
+  signal structures, outcome specificity, signal reconstruction, tied scores, ranking stability,
+  prediction and panels, the metrics, AUC calibration and the calibration checks.
+- Public docstrings say what each name is and what each argument and result field means.
+- The section on graph regions explains what a region is and what the evaluator measures.
+- The references page lists plain citations.
+- The contributing guide separates everyday checks from release checks.
+
+### Fixed
+
+- The front page said a single-metric evaluator returns a number; it returns a result object
+  with the number in `value`.
+- The prose for `evaluate_panel` named the panel and the reference in the opposite order to the
+  function's arguments.
+- The benchmark page described its three target AUCs as effect sizes.
+
 ## 1.2.1 — 2026-11-25
 
 A documentation release. The library computes the same results as 1.2.0: no executable code

@@ -1,6 +1,6 @@
 # API reference
 
-This page lists the signatures, types and result fields of the public API. See
+See
 [Methods](methods.md) for generation and [Evaluation](evaluation.md) for scoring.
 
 The common entry points are exported from `pyplasmode`. Matrices have shape
@@ -41,8 +41,8 @@ follow-up are represented by infinity.
 
 ## Tied selections and matched references
 
-The `nominations` module represents selections with membership weights, so tied scores
-can share a place in a leading list. It also compares recovery with matched random selection.
+Use `nominations` to split cutoff slots among tied scores and compare recovery with
+matched random selection.
 
 ::: pyplasmode.nominations
 

@@ -39,7 +39,7 @@ class Plasmode:
         X: Read-only feature matrix in draw order.
         feature_ids: Feature IDs in column order.
         outcome: Simulated outcomes in row order, with model parameters.
-        truth: Score driving the outcomes and known feature-selection targets.
+        truth: The generating score and its recovery targets.
         source_indices: Zero-based row indices into this sample's input pool.
         seed: Generation seed for `generate`, or this pool's row-sampling seed for a split dataset.
         sampling_method: Whether source rows were drawn with or without replacement.

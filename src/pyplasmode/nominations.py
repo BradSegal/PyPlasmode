@@ -181,7 +181,7 @@ def evaluate_fractional_recovery(
 
     Args:
         nomination: Selection with candidate IDs in the same order as the truth's feature IDs.
-        truth: Score that drives the outcomes and the known targets used to judge selection.
+        truth: Generating score and the recovery targets used to judge the selection.
         estimand: Score exact targets, groups, absolute weight or both interaction IDs.
         allow_subset: Allow candidates in any order. Missing targets earn zero and still count.
 

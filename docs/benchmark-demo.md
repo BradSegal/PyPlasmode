@@ -20,7 +20,7 @@ The extra is tested on Python 3.12-3.15 on Linux, with Windows and macOS covered
 The default is 3,000 rows and 120 features, with one numerical thread. Allow a
 few minutes on a laptop CPU. Use `--rows 1000` for a smaller run.
 `--seed` sets the random seed (default 42). The final console table and optional
-CSV contain all 27 comparisons: three signal structures, three effect sizes and three
+CSV contain all 27 comparisons: three signal structures, three target AUCs and three
 methods. The CSV retains full precision, the expected and realised AUC (area under
 the ROC curve) of the generating score,
 the recovery definition and the achieved selection size.

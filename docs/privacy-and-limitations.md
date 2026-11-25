@@ -8,8 +8,7 @@ these arrays in memory; you choose how to store them.
 
 ## Missing values
 
-The returned feature matrix retains its missing values, so your modelling workflow can apply
-its own preprocessing. For the built-in signal structures, median imputation is used only
+The returned feature matrix retains missing values. Apply your own preprocessing when fitting models. For the built-in signal structures, median imputation is used only
 internally, to compute each row's generating score from the generating features. Constant or entirely missing columns remain
 in `X` but cannot be generating features; see
 [Signal construction](methods.md#signal-construction).

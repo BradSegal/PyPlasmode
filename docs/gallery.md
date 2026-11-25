@@ -35,8 +35,7 @@ example orders:
 
 Both orders identify the relevant group at the first rank, but only the first order identifies
 the generating feature there. Choose exact or group recovery based on what counts as a useful
-discovery in your experiment. The curves are computed using `evaluate_ranking` and
-`evaluate_groups`.
+discovery in your experiment. Use `evaluate_ranking` for exact recovery and `evaluate_groups` for group recovery.
 
 [PDF](assets/patterns/correlated-recovery.pdf) | [SVG](assets/patterns/correlated-recovery.svg) |
 [Correlations](assets/patterns/feature-correlations.csv) |
@@ -76,5 +75,4 @@ python -m pip install pyplasmode
 python pattern_gallery.py --output gallery-data
 ```
 
-The script writes the tables used above. Modify its signal and outcome settings, then use the
-tables with your preferred plotting library.
+Modify the script's signal and outcome settings and plot its output tables.

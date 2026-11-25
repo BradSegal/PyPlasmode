@@ -8,11 +8,10 @@ well it identifies the generating features used to produce them.
 
 A plasmode uses observed measurements to maintain realistic feature relationships while you
 control how the outcome is generated. The library was built for biomarker benchmarking and
-accepts any numeric matrix of observations and named features, including the synthetic matrices
-below.
+accepts any numeric matrix of observations and named features, measured or synthetic.
 
-You can integrate it with your existing modelling workflow. Generate a dataset, fit and tune
-your models, then evaluate their predictions, feature rankings, or selected panels.
+Generate a dataset, fit and tune your models with your existing tools, then evaluate their
+predictions, feature rankings or selected panels.
 
 [![From observed measurements to simulated outcomes, model predictions and feature recovery](https://raw.githubusercontent.com/BradSegal/PyPlasmode/main/docs/assets/concepts/plasmode-workflow.png)](https://bradsegal.github.io/PyPlasmode/methods/)
 
@@ -87,15 +86,15 @@ pairs. See
 [paired evaluation](https://bradsegal.github.io/PyPlasmode/evaluation/#paired-procedure-comparisons).
 
 Source rows are split before resampling to keep training, validation and test rows disjoint.
-This example uses a fixed model. The validation sample is available for tuning hyperparameters.
+The fit uses fixed hyperparameters. Use the validation sample for tuning.
 
 ## What can be varied
 
 - **Signal:** a null, sparse, correlated, distributed or interaction structure, or a custom
   function.
 - **Outcome:** binary probability, continuous mean and spread, count rate, ordinal category
-  probabilities or cumulative event risks at chosen times. Binary and time-to-event outcomes
-  can take a target AUC of the generating score in place of an odds or hazard ratio
+  probabilities or cumulative event risks at chosen times. For binary and time-to-event outcomes,
+  set a target AUC of the generating score in place of an odds or hazard ratio
   ([calibration](https://bradsegal.github.io/PyPlasmode/calibration/)).
 - **Evaluation:** feature and group recovery, weighted-module and graph-region coverage,
   reconstruction of the generating score, prediction accuracy, panel performance and ranking
@@ -122,9 +121,8 @@ optional model libraries: `python -m pip install "pyplasmode[benchmark]"`.
 
 ## Using it with a coding agent
 
-The folder [`skills/pyplasmode`](https://github.com/BradSegal/PyPlasmode/tree/main/skills/pyplasmode)
-is a skill package that teaches a coding agent the workflow, the choices and the common
-mistakes. See [Coding agents](https://bradsegal.github.io/PyPlasmode/agents/).
+Use [`skills/pyplasmode`](https://github.com/BradSegal/PyPlasmode/tree/main/skills/pyplasmode)
+to give a coding agent the simulation workflow, design choices and common pitfalls. See [Coding agents](https://bradsegal.github.io/PyPlasmode/agents/).
 
 ## Working with empirical data
 

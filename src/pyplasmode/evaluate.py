@@ -236,7 +236,7 @@ def evaluate_signal_reconstruction(
     development_indices: ArrayLike,
     evaluation_indices: ArrayLike,
 ) -> SignalReconstructionEvaluation:
-    """Fit a linear model of the score that drives outcomes and test it on held-out rows.
+    """Fit a linear model of the generating score on a panel and test it on held-out rows.
 
     Missing values are filled using medians from the fitting rows. An empty selection
     predicts the mean score of those rows.

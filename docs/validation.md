@@ -24,18 +24,17 @@ a ranking incorrectly, and finding apparent structure when no signal is present.
    These exchangeable features provide a simple reference in which no feature has an
    intrinsic selection advantage.
 2. **Add a known effect.** Standardise one feature and generate binary, continuous, count,
-   ordinal and survival outcomes from it. The requested effects are known before fitting.
+   ordinal and survival outcomes from it.
 3. **Recover the effect with another implementation.** Fit statsmodels binomial, linear,
    Poisson, ordered-logistic and Cox models. Compare their fitted coefficients and 95%
    intervals with the values supplied to PyPlasmode.
 4. **Repeat outcome generation.** Use 40 random seeds per family and compare realised
    outcomes with the requested probabilities, rates and other native-unit targets.
 5. **Check the recovery arithmetic.** Put the generating features first in a ranking, then
-   compare with 1,000 random rankings. Perfect ordering should recover all generating
-   features; random top-10 selections from 100 features should recover 10% on average.
+   compare with 1,000 random rankings. Perfect ordering recovers all generating features at sufficient depth.
+   Random top-10 selections from 100 features recover 10% on average.
 6. **Remove the association.** Across 400 simulations, set the odds ratio to one and rank
-   features by their association with the random outcome. Each feature should appear in
-   the top ten about 40 times. This tests selection recurrence under an exchangeable null.
+   features by their association with the random outcome. With exchangeable features, each appears in the top ten 40 times in expectation.
 
 ![Effect estimates from independent implementations and feature-selection frequency under the null](assets/validation/validation.svg)
 

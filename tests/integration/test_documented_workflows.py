@@ -20,6 +20,8 @@ from sklearn.pipeline import Pipeline
         "evaluation",
         "metrics",
         "calibration",
+        "truths",
+        "methods",
     ],
 )
 def test_documented_workflow(page: str) -> None:

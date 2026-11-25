@@ -1,4 +1,4 @@
-"""Define the score that drives simulated outcomes and the targets for feature selection."""
+"""Define the generating score, which outcomes are simulated from, and the recovery targets."""
 
 from __future__ import annotations
 
@@ -57,10 +57,10 @@ class FeatureWeight:
 
 @dataclass(frozen=True, slots=True)
 class MaterializedTruth:
-    """The score driving simulated outcomes and the targets for scoring feature selection.
+    """The generating score, one number per row, and the targets for scoring feature selection.
 
     Attributes:
-        kind: Score design, such as `"sparse"` or `"custom"`.
+        kind: Signal structure, such as `"sparse"` or `"custom"`.
         signal: Read-only score in input row order.
         feature_universe: All input feature IDs in column order.
         direct_features: IDs counted as exact selection targets.
@@ -234,7 +234,7 @@ class InteractionTruth:
 
 @dataclass(frozen=True, slots=True)
 class CustomSignal:
-    """Supply a user-defined score that drives outcomes and optional targets for feature selection.
+    """Supply a user-defined generating score and optional targets for feature selection.
 
     Attributes:
         signal: Finite, non-constant score with one value per input row.
@@ -262,7 +262,7 @@ type CustomTruthFunction = Callable[
 
 @dataclass(frozen=True, slots=True)
 class CustomTruth:
-    """Define the score that drives outcomes with a user-supplied function.
+    """Define the generating score with a user-supplied function.
 
     Attributes:
         function: Callback taking a read-only matrix, column IDs and a seeded NumPy generator.
@@ -404,7 +404,7 @@ def materialize_truth(
     seed: int,
     feature_sets: FeatureSets | None = None,
 ) -> MaterializedTruth:
-    """Compute the score that drives simulated outcomes and record the feature-selection targets.
+    """Compute the generating score and record the feature-selection targets.
 
     Built-in feature scores use median-imputed, standardised columns. The resulting score has
     mean zero and unit population standard deviation. A null specification gives all zeros.

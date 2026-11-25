@@ -71,7 +71,7 @@ class BinaryOutcome:
     """Specify a binary outcome with a target average event probability.
 
     Set exactly one effect or AUC target. Effects are per standard deviation increase in the
-    score that drives outcomes. An AUC target sets an odds ratio of at least one.
+    generating score. An AUC target sets an odds ratio of at least one.
 
     Attributes:
         probability: Mean event probability across rows, in (0, 1).
@@ -108,7 +108,7 @@ class ContinuousOutcome:
     """Specify a Gaussian outcome with a target mean and standard deviation.
 
     Set exactly one of `effect` and `variance_explained`. Non-zero effects require a varying
-    score that drives outcomes.
+    generating score.
 
     Attributes:
         mean: Finite mean in outcome units.
@@ -183,7 +183,7 @@ class OrdinalOutcome:
         probabilities: Positive probabilities in category order, summing to one.
         common_odds_ratio: Positive finite multiplier on the odds of exceeding any category cutoff.
 
-    The odds ratio is per standard deviation increase in the score driving outcomes.
+    The odds ratio is per standard deviation increase in the generating score.
     """
 
     categories: tuple[str, ...]

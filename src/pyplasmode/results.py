@@ -129,7 +129,7 @@ class GraphRegionEvaluation:
 
 @dataclass(frozen=True, slots=True)
 class SignalReconstructionEvaluation:
-    """Test performance of a model that predicts the known score used to simulate outcomes.
+    """Held-out performance of a linear model that predicts the generating score from a panel.
 
     Attributes:
         selected_feature_count: Number of features supplied to the model.
