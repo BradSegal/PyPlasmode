@@ -29,7 +29,7 @@ def test_documented_workflow(page: str) -> None:
     root = Path(__file__).parents[2]
     source = root / "README.md" if page == "README" else root / "docs" / f"{page}.md"
     namespace: dict[str, object] = {}
-    blocks = re.findall(r"```python\n(.*?)```", source.read_text(), re.DOTALL)
+    blocks = re.findall(r"```python\n(.*?)```", source.read_text(encoding="utf-8"), re.DOTALL)
     assert blocks
     for block in blocks:
         exec(compile(block, str(source), "exec"), namespace)
