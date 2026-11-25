@@ -1,22 +1,22 @@
 # Visual gallery
 
-Explore how generating signals, feature relationships and outcome models shape a feature-selection
-benchmark. These examples use synthetic inputs and PyPlasmode's public generation and
-evaluation functions.
+The gallery shows how signals, feature relationships and outcome models influence a
+feature-selection benchmark. All examples use synthetic inputs.
 
 ## Different signals, the same features
 
 ![Six response surfaces showing null, sparse, distributed, product, threshold and saturating signals](assets/patterns/signal-shapes.svg)
 
 Each panel evaluates a signal on the same two-feature grid. Colour and labelled contours
-show the standardised generating signal: **a**, no signal; **b**, P1 alone; **c**, the sum
+show the standardised generating score, the number computed for each row from the
+generating features: **a**, no signal; **b**, P1 alone; **c**, the sum
 of P1 and P2; **d**, their product; **e**, a joint threshold requiring both features to be
 positive; **f**, the custom function `tanh(P1) + 0.5*tanh(P2)`.
 
-The sparse signal changes along one axis. The distributed signal changes with both features.
-The product depends on their combination, while the threshold and custom examples introduce
-abrupt and saturating responses. Use these forms to test the kinds of relationships your
-method should detect. See [Generating signals](truths.md).
+The sparse score varies along one axis. The distributed score varies with both features. The
+product depends on their combination. The threshold and custom examples introduce abrupt and
+saturating responses. Use these signal structures to test relationships your method should
+capture. See [Generating signals](truths.md).
 
 [PDF](assets/patterns/signal-shapes.pdf) | [SVG](assets/patterns/signal-shapes.svg) |
 [Source data](assets/patterns/signal-shapes.csv)
@@ -25,16 +25,17 @@ method should detect. See [Generating signals](truths.md).
 
 ![A correlation matrix beside exact-feature and group-recovery curves for two example rankings](assets/patterns/correlated-recovery.svg)
 
-**a**, Pearson correlations among six features from 1,000 synthetic observations. P1 generates
-the signal; P2 and P3 are correlated substitutes in the same group. **b**, exact-feature
-recall and **c**, group recall for two example orders:
+**a**, Pearson correlations among six features from 1,000 synthetic observations. P1 is the
+generating feature; P2 and P3 are its correlates, strongly correlated features in the same
+group. **b**, recovery of the generating feature and **c**, recovery of the group for two
+example orders:
 
 - **Generator first:** P1, P2, P3, P4, P5, P6.
-- **Substitute first:** P2, P4, P5, P6, P3, P1.
+- **Substitute first** (a correlate first): P2, P4, P5, P6, P3, P1.
 
-Both orders find the relevant group immediately, but only the first finds the generating
-feature immediately. Choose exact or group recovery according to what counts as a useful
-discovery in your experiment. The curves are calculated with `evaluate_ranking` and
+Both orders identify the relevant group at the first rank, but only the first order identifies
+the generating feature there. Choose exact or group recovery based on what counts as a useful
+discovery in your experiment. The curves are computed using `evaluate_ranking` and
 `evaluate_groups`.
 
 [PDF](assets/patterns/correlated-recovery.pdf) | [SVG](assets/patterns/correlated-recovery.svg) |
@@ -48,19 +49,18 @@ discovery in your experiment. The curves are calculated with `evaluate_ranking` 
 The curves show the generating functions after calibration on 2,000 synthetic observations:
 **a**, binary event probability; **b**, a continuous outcome's mean; **c**, expected counts;
 **d**, probabilities of three ordered categories; and **e**, event-free probabilities at
-signal values of -1, 0 and +1 standard deviations. Survival curves show event risk before
-censoring.
+generating scores of -1, 0 and +1 standard deviations. Survival curves show event-free
+probability before censoring.
 
 | Outcome | Example settings |
 | --- | --- |
-| Binary | Marginal probability 0.20; odds ratio 2 per signal SD |
-| Continuous | Mean 40; standard deviation 5; effect 2 outcome units per signal SD |
+| Binary | Marginal probability 0.20; odds ratio 2 per SD of the generating score |
+| Continuous | Mean 40; standard deviation 5; effect 2 outcome units per SD of the generating score |
 | Count | Rate 3 per unit exposure; rate ratio 1.7; conditional variance-to-mean ratio 2 |
 | Ordinal | Category probabilities 0.30, 0.40 and 0.30; common odds ratio 2 |
 | Survival | Cumulative event risks 0.20 at 5 years and 0.45 at 10 years; hazard ratio 2 |
 
-Change these settings in native outcome units to represent your application. The
-[outcome guide](outcomes.md) explains each family and its calibration.
+The [outcome guide](outcomes.md) explains each family and its calibration.
 
 [PDF](assets/patterns/outcome-families.pdf) | [SVG](assets/patterns/outcome-families.svg) |
 [Source data](assets/patterns/outcome-families.csv) |
@@ -76,6 +76,5 @@ python -m pip install pyplasmode
 python pattern_gallery.py --output gallery-data
 ```
 
-The script writes the tables used above. Adapt its signal and outcome settings, then use
-the tables in your preferred plotting library. The supplied SVG figures are editable and
-the PDFs can be used directly in presentations or teaching material.
+The script writes the tables used above. Modify its signal and outcome settings, then use the
+tables with your preferred plotting library.

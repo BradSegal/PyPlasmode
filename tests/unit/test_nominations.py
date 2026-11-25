@@ -1,4 +1,4 @@
-"""Component tests for support-aware biomarker nominations."""
+"""Component tests for feature selections with explicit positive-score support."""
 
 import numpy as np
 import pytest

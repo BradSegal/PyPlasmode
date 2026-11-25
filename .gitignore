@@ -12,3 +12,4 @@ site/
 uv.lock
 .env*
 validation-output/
+/gallery-output/

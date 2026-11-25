@@ -1,20 +1,18 @@
 # Benchmarking feature selection
 
-Suppose a model predicts well and ranks a few features highly. Are those the features
-that generated the outcome, or alternatives carrying similar information? This tutorial
-builds a dataset where the answer is known, fits a logistic model and measures both its
-prediction accuracy and its feature recovery.
+Suppose a model predicts well and ranks a few features highly. Are those the features that
+generated the outcome or their correlates: measured features strongly correlated with them? This
+tutorial builds a dataset where the answer is known, fits a logistic model, and measures both
+its prediction accuracy and feature recovery.
 
-The measurements are synthetic. For your own study, supply a numeric matrix with one
-observation per row and one feature per column, together with unique column names.
-Those features can be biomarkers or other measured variables. Install
-[PyPlasmode](https://pypi.org/project/pyplasmode/); NumPy and scikit-learn are included.
-Run the following blocks in order.
+The measurements are synthetic. For your own study, supply a numeric matrix with one observation
+per row and one feature per column, with unique column names. Install
+[PyPlasmode](https://pypi.org/project/pyplasmode/) (NumPy and scikit-learn are included). Run
+the blocks in order.
 
 ## Create correlated measurements
 
-Two feature pairs share information; four other features vary independently. These
-relationships are defined before any outcome is generated.
+Two feature pairs share information; four other features vary independently.
 
 ```python
 import numpy as np
@@ -42,10 +40,11 @@ print(groups.align(population).mapped)
 
 ## Generate an outcome from known features
 
-Only A and B enter the generating score. A_proxy and B_proxy are correlated alternatives:
-they can help predict the outcome without contributing to its construction. The API calls
-the generating member of each group a *sentinel*. Here, the outcome has a 15% marginal
-probability, and its odds double for each standard-deviation increase in the combined signal.
+Only A and B enter the generating score, the number computed for each row from the generating
+features. A_proxy and B_proxy are their correlates: they can help predict the outcome without
+entering the score. The API calls the generating member of each group a *sentinel* and lists the
+generating features in `direct_features`. Here, the outcome has a 15% marginal probability and
+its odds double for each standard-deviation increase in the generating score.
 
 ```python
 partition = ppm.partition_population(
@@ -70,8 +69,8 @@ print(train.truth.direct_features)
 Five-fold cross-validation selects the regularisation strength using the training sample.
 The [scaler is fitted within each fold](https://scikit-learn.org/stable/common_pitfalls.html#data-leakage),
 then the chosen pipeline is refitted on all training
-rows. The test sample is used only for evaluation. The separate validation sample is unused
-here because tuning uses cross-validation.
+rows. The test sample is used only for evaluation, and the validation sample is unused
+because tuning uses cross-validation.
 
 Absolute coefficients rank features by their fitted effect per training standard deviation.
 For another model, use its own importance scores with the same recovery functions.
@@ -95,19 +94,20 @@ print(prediction)
 print(ranking[:2], exact, group)
 ```
 
-The prediction result reports test-set ROC AUC, which measures how well the model ranks
-positive outcomes above negative ones. The recovery results answer a different question:
-did the highest-ranked features include A and B? Recall is the fraction of generating
-features found; precision is the fraction of selected features that generated the signal.
-Selecting A and B gives both scores 1.0. Selecting A and B_proxy gives both scores 0.5,
-but still recovers both groups.
+The prediction result reports test-set AUC, the area under the ROC curve: how well the
+model ranks positive outcomes above negative ones. The recovery results answer a
+different question: did the highest-ranked features include A and B? Recovery (`recall` in
+the API) is the fraction of generating features found; precision is the fraction of selected
+features that are generating features. Selecting A and B gives both scores 1.0. Selecting A
+and B_proxy gives both scores 0.5, but still recovers both groups.
 
 ## Compare with matched chance
 
-A random list can recover a generating feature by chance. To make a fair comparison,
-keep the number of selections from correlated pairs and independent features the same.
-These two categories form the *strata* for the random reference. Within each stratum,
-feature identities are treated as exchangeable.
+A random list can recover a generating feature by chance. Recovery above chance subtracts
+the recovery expected from random lists of the same size and composition: here, the same
+number of selections (`nomination` in the API) from correlated pairs and from independent
+features. These two categories form the *strata* for the random reference. Within each
+stratum, feature identities are treated as exchangeable.
 
 ```python
 nomination = ppm.nomination_from_scores(names, scores, depth=2)
@@ -118,15 +118,14 @@ print(matched.observed_recovery, matched.expected_recovery, matched.chance_adjus
 
 If both selections come from the four paired features, random assignment recovers half
 the two generating features on average. Finding both gives recovery 1.0, expected recovery
-0.5 and an excess of 0.5. Finding just A and B_proxy gives exact recovery 0.5 and zero
-excess under this reference. This asks whether the method identifies A and B better than
-random selection within the same types of features.
+0.5 and recovery above chance 0.5 (`chance_adjusted_recovery`). Finding just A and B_proxy
+gives recovery 0.5 and recovery above chance zero.
 
-## Change the generating mechanism
+## Change the signal structure
 
-The same measurements can test an outcome driven by individual features or by a shared
-group signal. A sparse specification uses A and B directly. A group-mean specification
-uses both members of each pair, so recovery concerns the group and its combined weight.
+Use the same measurements to test outcomes generated by individual features or group means. A
+sparse signal uses A and B directly. A group-mean signal uses both members of each pair, so
+recovery concerns the group and its combined weight.
 
 ```python
 sparse = ppm.materialize_truth(ppm.SparseTruth(features=("A", "B")), population, seed=3)
@@ -140,22 +139,21 @@ print(sparse.direct_features)  # ('A', 'B')
 print(distributed.direct_features)  # ()
 ```
 
-An empty `direct_features` tuple in the group-mean case denotes a distributed recovery
-target. Use `evaluate_groups` or `evaluate_module` for that hypothesis. Repeat the
-comparison over independent outcome draws, include a null signal and stronger effects,
+The empty `direct_features` tuple in the group-mean case shows that the recovery target is
+the groups, not individual features: use `evaluate_groups` or `evaluate_module`. Repeat the
+comparison over independent simulated datasets, include a null signal and stronger effects,
 and report the resulting distribution of prediction, precision and recovery. The
 [outcome examples](outcomes.md) extend this design to continuous responses, counts,
 ordered categories and time-to-event data.
 
 ## Choose discrimination and compare refits
 
-Use `BinaryOutcome(probability=0.15, target_auc=0.7)` to solve an odds ratio
-for the supplied generating score instead of choosing a ratio in advance. See
-[calibration](calibration.md) for the empirical-population interpretation.
-For several fitted rankings, use [selection stability and consensus](metrics.md).
-Use a shared participant bootstrap to compare fixed fitted predictors; use
-paired replicate comparisons for independent simulation worlds.
-
+Use `BinaryOutcome(probability=0.15, target_auc=0.7)` to solve the odds ratio from a
+target AUC of the generating score instead of choosing a ratio in advance; see
+[calibration](calibration.md). For several fitted rankings, use
+[selection stability and consensus](metrics.md). Compare fixed fitted predictors with a
+bootstrap over observations shared by both, and procedures across independent simulated
+datasets with [paired replicate comparisons](evaluation.md#paired-procedure-comparisons).
 
 ## Matching strata on empirical measurements
 

@@ -1,14 +1,15 @@
 # Outcomes in observable units
 
-Specify outcomes using probabilities, means, rates or event risks. PyPlasmode calibrates
-the distribution parameters and records them in `CalibrationResult`. Effect sizes refer
-to one standard deviation of the complete generating signal.
+Specify outcomes by probabilities, means, rates or event risks. PyPlasmode calibrates
+distribution parameters and stores them in `CalibrationResult`. Effect sizes refer to one
+standard deviation of the generating score, the number calculated per row from the generating
+features.
 
 ## Shared example population
 
-The examples use four synthetic features, with A and B generating the signal. Run this
-setup once, then each outcome family below. For your own application, supply a numeric
-matrix and its feature names. Each generated outcome has one response per sampled row.
+The examples use four synthetic features, with A and B as the generating features. Run this
+setup once, then each outcome family below. Each generated outcome has one response for each
+sampled row.
 
 ```python
 import numpy as np
@@ -32,9 +33,11 @@ def simulate(specification):
 ## Binary
 
 `BinaryOutcome` accepts a marginal positive probability and one odds ratio, risk ratio or risk
-difference, or `target_auc` to solve an odds ratio. See the
-[AUROC calibration guide](calibration.md). The effect measures use logistic, log-risk and identity-risk links, respectively. The resulting
-conditional probabilities must lie in `[0, 1]`.
+difference, which use logistic, log-risk and identity-risk links, respectively. The resulting
+conditional probabilities must lie in `[0, 1]`; a risk ratio or risk difference fails
+otherwise. Alternatively, `target_auc` solves the odds
+ratio from a target AUC (area under the ROC curve) of the generating score; see the
+[calibration guide](calibration.md).
 
 ```python
 binary = simulate(ppm.BinaryOutcome(probability=0.15, odds_ratio=2.0))
@@ -42,8 +45,8 @@ print(binary.values.shape, round(float(binary.values.mean()), 3))
 # (10000,) 0.152
 ```
 
-This returns 10,000 zero/one labels with an event fraction near 0.15. The odds of an
-event double for a one-standard-deviation increase in the generating score.
+This returns 10,000 zero/one labels with an event fraction close to 0.15. Event odds double for
+a one-standard-deviation increase in the generating score.
 
 ## Continuous
 
@@ -58,19 +61,20 @@ print(round(float(continuous.values.mean()), 2), round(float(continuous.values.s
 ```
 
 The response has mean near 100 and standard deviation near 15, in the units of the
-measurement. A one-standard-deviation increase in the signal raises its
+measurement. A one-standard-deviation increase in the generating score raises its
 conditional mean by five units.
 
 ## Counts
 
 Counts describe how many events occur during an exposure period. `CountOutcome` takes the
-average rate per unit exposure and a rate ratio per signal standard deviation. For example,
+average rate per unit exposure and a rate ratio per standard deviation of the generating
+score. For example,
 `CountOutcome(rate=3, rate_ratio=1.5, variance_to_mean=2)` specifies three events per exposure
-unit on average, a 50% higher conditional rate per signal standard deviation, and extra
+unit on average, a 50% higher conditional rate per standard deviation, and extra
 variation beyond a Poisson model.
 
-The variance-to-mean ratio controls variation among observations with the same signal and
-exposure. If their expected count is 4, a ratio of 2 gives variance 8. A ratio of 1 gives the
+The variance-to-mean ratio controls variation among observations with the same generating
+score and exposure. If their expected count is 4, a ratio of 2 gives variance 8. A ratio of 1 gives the
 Poisson model, whose variance equals its mean. Ratios above 1 use the NB1 negative-binomial
 model: variance increases in direct proportion to the conditional mean. This differs from
 the pooled variance across observations, which also reflects differences in their expected counts.
@@ -84,16 +88,15 @@ print(counts.values.dtype, round(float(counts.values.mean()), 3))
 ```
 
 The result contains integer event counts, averaging approximately three per unit exposure.
-For a hospital-admission application, an exposure unit could be one year. The rate rises
-by 50% per signal standard deviation; the conditional variance is twice the mean.
+For a hospital-admission application, an exposure unit could be one year.
 
 ## Ordered categories
 
 `OrdinalOutcome` accepts ordered labels, their marginal probabilities and a common
 odds ratio; proportional-odds thresholds are calibrated to those probabilities.
 For example, categories `low`, `middle` and `high` can have probabilities 0.25, 0.50 and 0.25.
-A positive signal shifts probability towards the higher categories; the common odds ratio
-uses the same effect at both category boundaries.
+With a common odds ratio above one, a higher generating score shifts probability towards the
+higher categories, with the same effect at every category boundary.
 
 ```python
 ordinal = simulate(
@@ -108,25 +111,22 @@ print(ordinal.categories, np.bincount(ordinal.codes) / len(ordinal.codes))
 ```
 
 The output stores category names and integer codes 0, 1 and 2. Category proportions
-are close to the requested quarters/half/quarter, with larger signals favouring higher categories.
+are close to the requested quarters/half/quarter.
 
 ## Time to event
 
-Specify event risks at times relevant to your application rather than choosing distribution
-parameters. For example, risks of 10% at five years and 25% at ten years allow the baseline
-event rate to change after year five. PyPlasmode uses a constant rate within each interval,
-giving a piecewise-exponential model that matches those cumulative risks.
+Specify event risks at times relevant to your application and let PyPlasmode determine the
+distribution parameters. For example, risks of 10% at five years and 25% at ten years allow the
+baseline event rate to change after year five. PyPlasmode uses a constant rate within each
+interval, giving a piecewise-exponential model that matches these cumulative risks.
 
 `TimeToEventOutcome` accepts cumulative event risks at one or more `days(...)` or `years(...)`
-horizons, either a hazard ratio or `target_auc`, and optional cumulative censoring risks at the same horizons. One
-point implies a constant baseline hazard. Several points imply piecewise-constant interval
-hazards. Censoring is independent. Administrative follow-up ends at the last
-risk point unless a later `administrative_horizon` is supplied. The default AUROC
-horizon is the last risk point strictly before that cutoff, or half the cutoff
-for a single point. Set `auc_horizon` explicitly when the scientific question
-requires a particular time.
-Targets describe latent event risk before censoring; observed time and event state are returned
-for modelling.
+horizons, either a hazard ratio or `target_auc`, and optional cumulative censoring risks at
+the same horizons. Censoring is independent. Administrative follow-up ends at the last
+risk point unless a later `administrative_horizon` is supplied; no events occur after the
+last risk point. The
+[calibration guide](calibration.md) covers `target_auc` and the `auc_horizon` at which it
+applies. Targets describe latent event risk before censoring.
 
 ```python
 survival = simulate(
@@ -149,10 +149,10 @@ because some observations are censored before their event. Fit survival models t
 
 ## Calibration equations
 
-For standardised signal `z`, binary odds-ratio generation uses
+For the standardised generating score `z`, binary odds-ratio generation uses
 `P(Y=1|z) = expit(alpha + log(OR)*z)`, solving `mean(P)=probability` for `alpha`.
 Risk-ratio generation uses `exp(alpha + log(RR)*z)`; risk-difference generation uses
-`probability + RD*z`. The latter two fail if a conditional probability leaves `[0, 1]`.
+`probability + RD*z`.
 
 Continuous generation uses `Y = mean + effect*z + epsilon`, with independent Gaussian
 `epsilon` of variance `standard_deviation^2 - effect^2`. For requested `R2`,
@@ -170,4 +170,3 @@ At each supplied horizon, solve `mean(S(t|z)) = 1 - event_risk(t)`; interpolate 
 hazard linearly between horizons, giving constant interval hazards. Event and independent
 censoring thresholds are drawn from unit exponentials and inverted against those cumulative
 hazards. Observed time is the minimum of event, censoring and administrative time.
-Latent event risks are not observed event proportions after censoring.

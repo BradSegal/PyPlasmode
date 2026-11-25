@@ -14,7 +14,7 @@ pytestmark = pytest.mark.unit
 
 
 def test_permuted_pairs_preserve_differences_and_uncertainty() -> None:
-    """Order cannot manufacture uncertainty for a constant world-wise effect."""
+    """Changing dataset order leaves a constant paired effect unchanged."""
     result = compare_paired_replicates(
         ("a", "b", "c", "d"),
         [0.1, 0.3, 0.5, 0.7],

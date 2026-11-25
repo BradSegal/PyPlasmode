@@ -35,7 +35,7 @@ def test_seeded_resampling_returns_complete_source_rows() -> None:
 
 
 def test_sampling_without_replacement_returns_unique_complete_source_rows() -> None:
-    """The explicit cohort-preserving policy never duplicates a source row."""
+    """Sampling without replacement never duplicates a source row."""
     source = np.arange(30, dtype=np.float64).reshape(10, 3)
     population = Population(source, ("a", "b", "c"))
 

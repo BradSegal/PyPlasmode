@@ -1,4 +1,4 @@
-"""Define a deterministic nonlinear mechanism without a registry or model adapter."""
+"""Define a deterministic nonlinear signal structure with a custom function."""
 
 import json
 from dataclasses import asdict

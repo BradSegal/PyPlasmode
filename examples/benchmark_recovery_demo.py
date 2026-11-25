@@ -1,7 +1,7 @@
 """Compare prediction and top-20 recovery using entirely synthetic features.
 
-Install the optional ``benchmark`` extra for Cox and XGBoost. No data downloads,
-accelerator, plotting library or private analysis code are needed.
+Install the optional ``benchmark`` extra for Cox and XGBoost. The example
+generates its own feature data.
 """
 
 import argparse
@@ -23,7 +23,7 @@ def run_demo(*, rows: int = 3_000, seed: int = 42) -> list[dict[str, object]]:
     """Return all 27 comparisons with fixed settings and a held-out evaluation.
 
     Oracle calibration uses the finite synthetic covariate population before
-    outcome sampling. It targets expected discrimination, not realised test AUROC.
+    outcome sampling. The target is the expected AUC over that population.
     """
     try:
         from sksurv.linear_model import CoxPHSurvivalAnalysis
@@ -134,7 +134,7 @@ def run_demo(*, rows: int = 3_000, seed: int = 42) -> list[dict[str, object]]:
 
 
 def main() -> None:
-    """Print an AUROC-versus-recovery table and optionally save its full values."""
+    """Print a table of AUC and recovery and optionally save its full values."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rows", type=int, default=3_000)
     parser.add_argument("--seed", type=int, default=42)

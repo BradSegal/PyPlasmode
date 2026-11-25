@@ -79,7 +79,7 @@ def test_partitioned_generation_freezes_truth_and_prevents_source_role_leakage()
 
 @pytest.mark.integration
 def test_partitioned_generation_can_preserve_every_fixed_role_member_once() -> None:
-    """Cohort-matched generation can retain complete disjoint empirical roles."""
+    """Generation can retain all rows from the disjoint empirical partitions."""
     rng = np.random.default_rng(61)
     population = Population(rng.normal(size=(100, 8)), tuple(f"p{i}" for i in range(8)))
     partition = partition_population(

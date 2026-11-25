@@ -1,24 +1,21 @@
 # PyPlasmode
 
-PyPlasmode lets you test how well a modelling procedure predicts outcomes and identifies
-the features behind them. You supply a numeric feature matrix, specify a signal and generate
-an outcome. Because the generating features are known, you can compare a model's feature
-ranking with the mechanism that produced the data.
+PyPlasmode lets you evaluate how well a modelling procedure predicts outcomes and identifies the
+features behind them. You provide a numeric feature matrix, define a signal and simulate an
+outcome. Because the generating features are known, you can compare a model's feature ranking
+with them.
 
-This combination of observed features and simulated outcomes is a *plasmode*. It retains
-the relationships in your measurements while letting you vary the signal, effect size and
-outcome frequency. The library was developed for biomarker benchmarking, but accepts numeric
-tabular data from other applications. The examples use synthetic matrices so they can run
-without an external dataset.
+This combination of observed features and simulated outcomes is a *plasmode*. It preserves
+relationships in your measurements while allowing you to vary the signal, effect size and
+outcome frequency. The library supports biomarker benchmarking and accepts numeric tabular data
+from other applications.
 
-Keep model fitting, tuning and explanation in your usual tools. PyPlasmode generates the
-data and evaluates the predictions, rankings and selected feature sets you return.
-
-Explore the [visual gallery](gallery.md) for examples of signal shapes, correlated-feature
-recovery and outcome families.
+Use your existing tools for model fitting, tuning and explanation. PyPlasmode simulates the data
+and evaluates the predictions, rankings and selected feature sets you return.
 
 Start with the [feature-selection tutorial](tutorial.md) to fit a model, rank its features
-and compare their recovery with random selection.
+and compare their recovery with random selection. The [visual gallery](gallery.md) shows
+signal structures, recovery among correlated features and outcome families.
 
 ## Install and run
 
@@ -31,38 +28,39 @@ python -m pip install pyplasmode
 For the survival and validation examples, add the optional estimators and plotting tools
 with `python -m pip install "pyplasmode[validation]"`.
 
-Start with the [quickstart](https://github.com/BradSegal/PyPlasmode/blob/main/examples/quickstart.py),
-which reports test-set AUC and the fraction of generating features recovered.
-The [survival example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/survival.py)
-sets event risks at five and ten years and fits a Cox model to the generated follow-up.
-The [custom example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/custom_signal.py)
-uses a signal whose response levels off at extreme feature values. This lets you test a
-nonlinear relationship without changing the model-evaluation workflow. Download and run
-these scripts locally; all three supply synthetic inputs.
+Three scripts run locally on synthetic inputs. The
+[quickstart](https://github.com/BradSegal/PyPlasmode/blob/main/examples/quickstart.py) reports
+test-set AUC (area under the ROC curve) and the fraction of generating features recovered. The
+[survival example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/survival.py) sets
+event risks at five and ten years and fits a Cox model to the generated follow-up. The
+[custom example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/custom_signal.py)
+uses a signal whose response plateaus at extreme feature values.
 
 ## A complete comparison
 
-The **signal** is the score calculated from your chosen features. The **outcome** is the
-response generated from that score, with random variation. **Recovery** measures how well
-the selected features match the specified signal. A **panel** is simply a selected subset
-of features, whether or not they are biomarkers.
+The **signal** is what you specify: which features generate the outcome, in what structure
+and how strongly. The **generating score** is the number computed for each row from those
+generating features. The **outcome** is the response generated from that score, with random
+variation. **Recovery** is the fraction of the generating features in a selection. A
+**panel** is a selected subset of features used to predict.
 
 1. Supply a numeric matrix and stable feature identifiers.
-2. Choose a [generating signal](truths.md) and an [outcome in observable units](outcomes.md).
+2. Choose a [signal](truths.md) and an [outcome in observable units](outcomes.md).
 3. Split source rows before resampling to keep training and test observations separate.
 4. Generate training, validation and test samples, then fit and tune your models.
 5. Evaluate predictions and [feature recovery](evaluation.md), including tied importance scores.
 6. Repeat with independent seeds and summarise the paired results.
 
-Compare methods on the same generated samples. Vary the signal, effect size, sample size
-or censoring to explore the conditions that matter for your application. The
+Compare methods on the same generated samples. Vary the signal, effect size, sample size, or
+censoring to explore the conditions that matter for your application. The
 [methods guide](methods.md) explains how these choices define the simulation.
 
 ## Return types
 
-`Plasmode` contains `X`, `feature_ids`, `outcome`, `truth` and `source_indices`.
+`Plasmode` contains `X`, `feature_ids`, `outcome`, `truth` (the signal and its generating
+score) and `source_indices`.
 `PartitionedPlasmode` contains training, validation and evaluation plasmodes and their original
-source identities. Evaluation functions return dataclasses; `dataclasses.asdict(result)`
-converts them to dictionaries for analysis or export.
+source identities. Evaluation functions return dataclasses or, for a single metric, a number;
+the [API reference](api.md) lists them.
 
 For empirical inputs, follow the [data handling guidance](privacy-and-limitations.md).

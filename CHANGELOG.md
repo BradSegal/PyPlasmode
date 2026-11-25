@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.2.1 — 2026-11-25
+
+A documentation release. The library computes the same results as 1.2.0: no executable code
+in the package changed apart from the version string.
+
+### Added
+
+- A skill package for coding agents (`skills/pyplasmode`): the workflow, the choice of signal
+  structure and recovery measure, common mistakes and five tested recipes.
+
+### Changed
+
+- The documentation uses one set of terms throughout: generating features, generating score,
+  signal structure, correlates, recovery above chance and AUC. Names in code are unchanged.
+- Docstrings and comments use the same terms.
+- `CITATION.cff` carries an abstract for archive metadata.
+
+### Fixed
+
+- Descriptions that did not match the code: the default `auc_horizon`, the row indices returned
+  by `generate_partitioned`, automatic choice of generating features, the joint-threshold
+  interaction, the logit calibration bracket, the checks on sampled outcomes, `rank_stability`
+  with more than two rankings and the failure counts of `compare_paired_replicates`.
+- The gallery's calibration table (`outcome-calibration.json`) matches the output of the
+  gallery script.
+- The reference list cites the definition of the time-dependent ROC curve (Heagerty, Lumley
+  and Pepe, 2000).
+
 ## 1.2.0 — 2026-11-09
 
 ### Added

@@ -38,7 +38,7 @@ def test_subset_retains_missing_generator_in_denominator_and_actual_null() -> No
 
 
 def test_subset_module_ceiling_preserves_missing_weight() -> None:
-    """Weighted recovery cannot exceed the accessible share of original truth."""
+    """Weighted recovery is bounded by the total truth weight available to the selection."""
     truth = ppm.MaterializedTruth(
         kind="module",
         signal=np.arange(20, dtype=np.float64),
@@ -54,7 +54,7 @@ def test_subset_module_ceiling_preserves_missing_weight() -> None:
 
 
 def test_subset_group_proxy_and_unavailable_interaction() -> None:
-    """An available proxy can recover a group, but cannot complete a missing pair."""
+    """A correlate can recover a group. A pair requires both generating features."""
     universe = ("a", "b", "proxy", "other")
     nomination = ppm.nomination_from_scores(("proxy", "other"), np.asarray([1.0, 0.0]), depth=1)
     group_truth = ppm.MaterializedTruth(

@@ -115,8 +115,8 @@ def rank_biased_overlap(
 
     Lower values mean better ranks; equal values indicate ties. Convert higher
     importance scores with ``rankdata(-scores, method="average")`` first.
-    The default ``tie_method="webber"`` follows Webber et al. (2010), section
-    4.3 (4.6, Eq. 28 in the author's version): prefixes contain whole tie groups
+    The default ``tie_method="webber"`` follows Webber et al. (2010), Equation 28
+    in section 4.6 of the author's manuscript: prefixes contain whole tie groups
     starting at or before depth d, and
     agreement is twice their intersection divided by their combined sizes.
     Identical tied rankings have agreement one.
@@ -240,20 +240,21 @@ def cumulative_dynamic_auc(
     horizon: float,
     tied_tolerance: float = 0.0,
 ) -> float:
-    """Estimate cumulative/dynamic AUROC at one horizon using training IPCW.
+    """Estimate cumulative/dynamic AUC at one horizon using training IPCW.
 
     Cases have observed events at or before horizon; controls have observed time
-    strictly beyond it. Earlier censoring is excluded. Cases receive 1/G(time),
+    strictly beyond it. Censoring at or before the horizon is excluded. Cases receive 1/G(time),
     using a reverse Kaplan-Meier censoring curve from the training sample.
     Controls' common 1/G(horizon) cancels. Independent censoring is assumed.
     All time arrays and horizon must use the same units. Higher risk means a
     higher event risk. The default uses exact score ties, credited one half.
-    An explicit positive tied_tolerance uses adjacent-score tie blocks, including
-    transitive chains, for compatibility with scikit-survival. Use it only when
-    that historical convention is intended; it can merge dense probabilities.
+    A positive ``tied_tolerance`` groups adjacent scores into tie blocks,
+    including transitive chains, as in scikit-survival. This can merge
+    distinct scores in densely spaced predictions.
 
-    Raises ValueError for missing cases/controls, horizon outside training
-    follow-up, zero censoring support or invalid arrays. Events exactly at the
+    Raises ValueError for missing cases/controls, a nonpositive or nonfinite
+    horizon, a horizon at or beyond maximum training follow-up, zero censoring
+    support or invalid arrays. Events exactly at the
     horizon are cases; censoring exactly there is not a control. Administrative
     follow-up must extend beyond the evaluation horizon.
     """
@@ -323,7 +324,7 @@ def paired_bootstrap_difference(
     non-finite estimates are errors, not silently discarded failures.
 
     This percentile interval describes participant sampling for fixed models.
-    Use compare_paired_replicates for independent simulation-world comparisons.
+    Use ``compare_paired_replicates`` for comparisons across independent simulated datasets.
     """
     if isinstance(participants, (int, np.integer)):
         integer(participants, "participants", minimum=2)
@@ -360,8 +361,7 @@ def paired_bootstrap_difference(
         left.append(None if pair is None else float(pair[0]))
         right.append(None if pair is None else float(pair[1]))
     ids = tuple(str(i) for i in range(resamples))
-    # Reuse identity/failure alignment, but deliberately do not use its Monte
-    # Carlo t interval: bootstrap draws are not independent simulation worlds.
+    # Align failed pairs and take percentile limits from the paired bootstrap draws.
     comparison = compare_paired_replicates(ids, left, ids, right)
     alpha = (1.0 - confidence_level) / 2.0
     low, high = np.quantile(comparison.differences, [alpha, 1.0 - alpha])
@@ -382,7 +382,7 @@ def paired_bootstrap_difference(
 
 @dataclass(frozen=True, slots=True)
 class DiscriminationGap:
-    """Oracle-minus-fitted AUROC on the same evaluation population."""
+    """Oracle-minus-fitted AUC on the same evaluation population."""
 
     oracle_auc: float
     fitted_auc: float
@@ -392,7 +392,7 @@ class DiscriminationGap:
 def discrimination_gap(
     oracle_risk: ArrayLike, fitted_risk: ArrayLike, *, metric: Callable[[ArrayLike], float]
 ) -> DiscriminationGap:
-    """Compare oracle and fitted scores using one fixed AUROC evaluator.
+    """Compare oracle and fitted scores using one fixed discrimination metric such as AUC.
 
     Bind shared labels, horizon, censoring reference and sample in metric, e.g.
     a closure over cumulative_dynamic_auc or sklearn.metrics.roc_auc_score.

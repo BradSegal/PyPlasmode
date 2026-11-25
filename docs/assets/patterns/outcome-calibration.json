@@ -12,7 +12,7 @@
       ],
       [
         "odds_ratio",
-        2
+        2.0
       ]
     ],
     "checks": [
@@ -24,7 +24,9 @@
         "tolerance": 0.05366563145999496,
         "within_tolerance": true
       }
-    ]
+    ],
+    "oracle_auc": 0.6818457824451485,
+    "target_auc": null
   },
   "continuous": {
     "family": "gaussian",
@@ -63,7 +65,9 @@
         "tolerance": 0.4744602789255799,
         "within_tolerance": true
       }
-    ]
+    ],
+    "oracle_auc": null,
+    "target_auc": null
   },
   "count": {
     "family": "negative_binomial_nb1_log",
@@ -98,7 +102,9 @@
         "tolerance": 0.3286335345030997,
         "within_tolerance": true
       }
-    ]
+    ],
+    "oracle_auc": null,
+    "target_auc": null
   },
   "ordinal": {
     "family": "proportional_odds_logit",
@@ -144,7 +150,9 @@
         "tolerance": 0.06148170459575758,
         "within_tolerance": true
       }
-    ]
+    ],
+    "oracle_auc": null,
+    "target_auc": null
   },
   "survival": {
     "family": "piecewise_exponential_proportional_hazards",
@@ -156,6 +164,10 @@
       [
         "hazard_ratio",
         2.0
+      ],
+      [
+        "auc_horizon_days",
+        1826.25
       ],
       [
         "baseline_cumulative_hazards",
@@ -212,6 +224,8 @@
         "tolerance": 0.05809475019311125,
         "within_tolerance": true
       }
-    ]
+    ],
+    "oracle_auc": 0.7035726915567986,
+    "target_auc": null
   }
 }

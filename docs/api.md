@@ -1,9 +1,12 @@
 # API reference
 
+This page lists the signatures, types and result fields of the public API. See
+[Methods](methods.md) for generation and [Evaluation](evaluation.md) for scoring.
+
 The common entry points are exported from `pyplasmode`. Matrices have shape
 `(observations, features)`; `feature_ids` supplies one unique string per column.
 Generated arrays are read-only. Convert result dataclasses to plain records with
-`dataclasses.asdict` for your reporting workflow.
+`dataclasses.asdict`.
 
 Use `generate` for one sample or `partition_population` followed by
 `generate_partitioned` to keep source rows separate between training, validation and test. Access
@@ -11,9 +14,6 @@ Use `generate` for one sample or `partition_population` followed by
 ordinal outcomes, and `outcome.time` plus `outcome.event` for survival outcomes.
 Survival times are in days; latent event and censoring times beyond administrative
 follow-up are represented by infinity.
-
-The reference below lists signatures, types and result fields. See
-[Methods](methods.md) for generation and [Evaluation](evaluation.md) for scoring.
 
 ## Populations and sampling
 
@@ -23,7 +23,7 @@ The reference below lists signatures, types and result fields. See
 
 ::: pyplasmode.generate
 
-## Truth specifications
+## Signal specifications
 
 ::: pyplasmode.truth
 

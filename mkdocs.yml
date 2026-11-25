@@ -13,8 +13,9 @@ nav:
   - Outcomes: outcomes.md
   - Evaluation: evaluation.md
   - Metrics: metrics.md
-  - AUROC calibration: calibration.md
+  - AUC calibration: calibration.md
   - Extensions: structures-and-extensions.md
+  - Coding agents: agents.md
   - Validation: validation.md
   - API: api.md
   - Data handling: privacy-and-limitations.md

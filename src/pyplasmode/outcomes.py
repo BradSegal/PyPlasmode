@@ -63,7 +63,7 @@ def years(value: float) -> Duration:
 
 @dataclass(frozen=True, slots=True)
 class BinaryOutcome:
-    """A marginal probability with one effect or an expected oracle AUROC target.
+    """A marginal probability with one effect or an expected AUC target.
 
     Specify exactly one of odds_ratio, risk_ratio, risk_difference or target_auc.
     A target in [0.5, 1) solves an odds ratio at least one on the supplied signal
@@ -194,12 +194,13 @@ def _risk_points(values: Mapping[Duration, float], *, name: str) -> tuple[RiskPo
 
 @dataclass(frozen=True, slots=True, init=False)
 class TimeToEventOutcome:
-    """Cumulative risks with a hazard ratio or expected oracle AUROC target.
+    """Cumulative risks with a hazard ratio or an expected AUC target.
 
     Specify exactly one of hazard_ratio or target_auc. auc_horizon must be a
     time strictly before administrative_horizon. By default, it is the last
-    event-risk point before that cutoff, or half the cutoff for a single point.
-    Independent censoring changes realised precision but not the expected oracle discrimination.
+    event-risk point before that cutoff, or half the cutoff if no event-risk
+    point precedes it. Independent censoring changes realised precision but not
+    the expected AUC of the generating score.
     Administrative follow-up defaults to the last risk point; a later explicit
     administrative_horizon retains survivors beyond the final risk point with
     no additional event or censoring hazard. Times are in days.
@@ -287,7 +288,7 @@ class CalibrationResult:
 
     oracle_auc integrates conditional case/control probabilities over independent
     draws from the empirical supplied signal population; it is not a realised
-    sample AUROC. It is reported for binary and survival outcomes when defined.
+    sample AUC. It is reported for binary and survival outcomes when defined.
     target_auc is None when discrimination was not explicitly targeted.
     """
 
@@ -848,11 +849,12 @@ def generate_outcome(
 
     Returns:
         Typed outcome arrays and solved calibration parameters. Survival times
-        are in days and are administratively censored at the last horizon.
+        are in days, with administrative censoring at ``spec.administrative_horizon``.
 
     Raises:
-        OutcomeSpecificationError: Invalid targets, exposure dimensions, or a
-            positive continuous explained-variance request with constant signal.
+        OutcomeSpecificationError: Invalid targets or exposure dimensions,
+            or a non-zero continuous effect or explained-variance request with
+            constant signal.
         CalibrationError: The chosen family cannot attain a requested target.
         RealizationError: Finite-sample diagnostics exceed the declared tolerance.
     """

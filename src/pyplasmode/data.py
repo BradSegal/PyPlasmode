@@ -89,7 +89,7 @@ class ResampledPopulation:
 
 @dataclass(frozen=True, slots=True)
 class PopulationPartition:
-    """Disjoint empirical source populations with original-row lineage."""
+    """Disjoint empirical populations with indices into the source matrix."""
 
     training: Population
     validation: Population
