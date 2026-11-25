@@ -158,35 +158,42 @@ counts in the denominator.
 Some recovery happens by luck. Selecting ten of 100 features at random recovers 10% of the
 generating features on average, so a method that recovers 40% has done 30 percentage points
 better than chance, not 40. *Recovery above chance* is the recovery observed minus the recovery
-expected from a random selection. The API calls it `chance_adjusted_recovery`.
+a random selection would get. The API calls it `chance_adjusted_recovery`.
 
-The random selection must be a fair comparison. Generating features often share a property, such as
-strong correlation with other features, and a method that favours that property beats unrestricted
-random selection without using the outcome. So you label each feature with a *stratum* that
-describes its kind, and the random reference keeps the number of selections in each stratum and
-changes only which features within it are chosen. [Compare with matched
-chance](tutorial.md#compare-with-matched-chance) works through an example, and [Matching strata on
-empirical measurements](tutorial.md#matching-strata-on-empirical-measurements) derives strata from
-measured features. Build the strata from the measurements alone, never from the outcome, the signal
-or a fitted model, or the reference can be tuned to flatter a method.
+The answer depends on what "random" means. If one kind of feature is more likely to be a
+generating feature, or easier to hit, a selection that favours that kind scores well without
+having identified anything. A *stratum* is a label you give each feature to say which features
+the random selection may swap for which, so that it resembles the real selection in kind.
 
 `evaluate_matched_recovery(nomination, truth, estimand=..., strata=...)` takes a selection from
 `nomination_from_scores`, an `estimand` as in `evaluate_fractional_recovery`, and one stratum
-label per feature, in the order of the selection's features. It returns the selection's
-`observed_recovery`, the random reference's `expected_recovery` and their difference,
-`chance_adjusted_recovery`: zero means no better than chance and a negative value worse.
-`admissible_panel_count` is the number of ways the reference can rearrange the selection within
-its strata. At 1 the only rearrangement is the observed selection, so recovery above chance is
-zero whatever the method did.
+label per feature, in the order of the selection's features. It then:
 
-Within each stratum the reference keeps the number of features with a positive score and the
-memberships, including shared memberships at a tie, and assigns them to the stratum's features
-at random. The expectation is calculated exactly rather than by drawing random selections, so it
-carries no simulation error. For recovery of the generating features, each feature's expected
-membership is the total membership selected in its stratum divided by the stratum's size: a
-selection that takes two of four features in a stratum gives each of the four 0.5. For group
-recovery the expectation accounts for group size, because a random selection is more likely to
-hit a large group than a small one.
+1. counts the selections in each stratum;
+2. builds the random reference by keeping those counts and reshuffling which features within
+   each stratum are selected;
+3. computes the expected recovery of that reference exactly, without simulation;
+4. returns `observed_recovery`, `expected_recovery` and their difference,
+   `chance_adjusted_recovery`. Zero means no better than chance and a negative value worse.
+
+The tutorial works through an example with its numbers in
+[Compare with matched chance](tutorial.md#compare-with-matched-chance), and
+[Matching strata on empirical measurements](tutorial.md#matching-strata-on-empirical-measurements)
+derives strata from measured features.
+
+Three rules for choosing strata:
+
+- **Use the measurements only**, never the outcome, the signal or a fitted model, or the
+  reference can be tuned to flatter a method.
+- **Fix them before looking at results.**
+- **Keep them coarse enough that chance can vary.** `admissible_panel_count` is the number of
+  ways the reference can rearrange the selection within its strata. At 1 the only
+  rearrangement is the observed selection, so recovery above chance is zero whatever the
+  method did.
+
+When scores tie at the cutoff, the reference keeps the shared memberships as well as the
+counts. For group recovery the expectation accounts for group size, because a random selection
+is more likely to hit a large group than a small one.
 
 ### Outcome specificity
 

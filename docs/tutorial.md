@@ -165,20 +165,14 @@ of 1.0, because B_proxy stands in for B's group.
 
 ## Compare with matched chance
 
-A list of two features contains a generating feature some of the time by luck. Recovery above
-chance removes that luck: it is the recovery you observed minus the recovery expected from
-choosing features at random.
+A list of two features contains a generating feature some of the time by luck. *Recovery above
+chance* is the recovery you observed minus the recovery a random list would get.
 
-The random choice has to be a fair one. Picking any two of the eight features finds a quarter
-of A and B on average. But A and B are both among the four paired features, and a model's top
-choices tend to fall there too, on a generating feature or on its correlate. Picking two of
-the four paired features finds half of A and B on average, so a model can score well above
-the all-features figure without telling A from A_proxy.
-
-To make the comparison fair, give each feature a label that says what kind it is, called its
-*stratum*: here `pair` for the four paired features and `singleton` for the other four. The
-random reference keeps the number of selections in each stratum and varies only which features
-within it are chosen.
+The answer depends on what "random" means. If one kind of feature is more likely to be a
+generating feature, a list that favours that kind scores well without having identified
+anything. A *stratum* is a label you give each feature to say which features the random list
+may swap for which, so that the random list resembles the real one in kind. Here the labels
+are `pair` for the four paired features and `singleton` for the other four.
 
 ```python
 nomination = ppm.nomination_from_scores(names, scores, depth=2)
@@ -186,20 +180,43 @@ strata = ("pair", "pair", "pair", "pair", "singleton", "singleton", "singleton",
 matched = ppm.evaluate_matched_recovery(nomination, train.truth, estimand="exact", strata=strata)
 print(matched.observed_recovery, matched.expected_recovery, matched.chance_adjusted_recovery)
 # 1.0 0.5 0.5
+
+unmatched = ppm.evaluate_matched_recovery(
+    nomination, train.truth, estimand="exact", strata=("all",) * 8
+)
+print(unmatched.expected_recovery, unmatched.chance_adjusted_recovery)
+# 0.25 0.75
 ```
 
 `nomination_from_scores` turns the importance scores into the top two features (the API calls
-a selection a *nomination*). The model selected A and B, so recovery is 1.0. Two paired
-features chosen at random recover 0.5, which leaves a recovery above chance of 0.5
-(`chance_adjusted_recovery`). Had the model selected A and B_proxy, recovery would be 0.5 and
-recovery above chance zero: no better than choosing paired features at random.
+a selection a *nomination*). `evaluate_matched_recovery` then:
+
+1. counts the model's selections in each stratum: two in `pair`, none in `singleton`;
+2. builds the random reference by keeping those counts and reshuffling which features within
+   each stratum are selected;
+3. computes the expected recovery of that reference exactly, without simulation;
+4. returns the observed recovery, the expected recovery and their difference
+   (`chance_adjusted_recovery`).
+
+The model selected A and B, so its recovery is 1.0. What that is worth depends on the
+reference:
+
+| Random reference | Expected recovery | Recovery above chance |
+| --- | --- | --- |
+| One stratum: any two of the eight features | 0.25 | 0.75 |
+| `pair` and `singleton`: any two of the four paired features | 0.50 | 0.50 |
+
+Both selections were paired features, so the fair reference also picks two paired features,
+and half of those are generating. The one-stratum 0.75 credits the model for looking among
+correlated features at all. The matched 0.5 credits it only for telling A from A_proxy. Had
+the model selected A and B_proxy, recovery would be 0.5 and recovery above chance zero.
 
 ## Matching strata on empirical measurements
 
 Here the strata were known, because the pairs were built by hand. Real measurements carry no
-such labels, so you need a rule that sorts features into strata. A workable rule is how
-strongly each feature correlates with any other: features with close correlates are the
-ones a model can swap for one another, and they should be compared with each other.
+such labels, so you need a rule that sorts features into strata. One rule is how strongly
+each feature correlates with any other: features with close correlates are the ones a model
+can swap for one another.
 
 ```python
 correlations = np.abs(np.corrcoef(population.X, rowvar=False))
@@ -225,19 +242,23 @@ set each feature's correlation with itself to zero, and keep each feature's stro
 correlation with another. `np.digitize` then sorts features into three strata: below 0.3,
 0.3 to 0.7, and 0.7 or above. The rule recovers the hand-made strata, so the result is the same.
 
-Three things keep the comparison honest:
+Another rule is the size of the correlated group a feature belongs to. When a group counts as
+recovered if any member is selected, a large group is easier to hit by luck, so features in
+groups of similar size are compared with each other.
 
-- **Fix the rule before you look at results.** The strata may use the measurements but not
-  the outcomes, the signal or anything a fitted model produced. Cut points chosen after
-  seeing which features were selected can be tuned, knowingly or not, to flatter a method.
-- **Check that chance has room to vary.** `admissible_panel_count` is the number of ways the
-  random reference can rearrange the selection within its strata: 6 here, the ways to choose
-  two of four paired features. If it is 1, the only possible random selection is the
-  observed one and recovery above chance is zero whatever the model did. Use fewer, larger
-  strata.
-- **Prepare the matrix first.** `np.corrcoef` returns missing values for a column that is
-  constant or contains missing values. Drop constant columns and compute correlations on
-  complete rows or with pairwise deletion (for example `pandas.DataFrame.corr`).
+Three rules for choosing strata:
+
+- **Use the measurements only.** Never use the outcomes, the signal or anything a fitted
+  model produced, or the reference can be tuned, knowingly or not, to flatter a method.
+- **Fix the rule before you look at results**, cut points included, for the same reason.
+- **Keep strata coarse enough that chance can vary.** `admissible_panel_count` is the number
+  of ways the random reference can rearrange the selection within its strata: 6 here, the
+  ways to choose two of four paired features. If it is 1, the only possible random list is
+  the observed one, and recovery above chance is zero whatever the model did.
+
+`np.corrcoef` returns missing values for a column that is constant or contains missing
+values. Drop constant columns first, and compute correlations on complete rows or with
+pairwise deletion (for example `pandas.DataFrame.corr`).
 
 ## Change the signal structure
 
