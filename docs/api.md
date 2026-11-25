@@ -1,19 +1,24 @@
 # API reference
 
-See
+This page lists every public class and function with its arguments, defaults and errors, for
+looking up a detail once you know which function you need. The guides explain when to use each:
 [Methods](methods.md) for generation and [Evaluation](evaluation.md) for scoring.
 
-The common entry points are exported from `pyplasmode`. Matrices have shape
-`(observations, features)`; `feature_ids` supplies one unique string per column.
-Generated arrays are read-only. Convert result dataclasses to plain records with
-`dataclasses.asdict`.
+Import every function, and every class you construct, from `pyplasmode`; the functions in
+`pyplasmode.metrics` are the exception. A few conventions hold throughout:
 
-Use `generate` for one sample or `partition_population` followed by
-`generate_partitioned` to keep source rows separate between training, validation and test. Access
-`outcome.values` for binary, continuous and count outcomes, `outcome.codes` for
-ordinal outcomes, and `outcome.time` plus `outcome.event` for survival outcomes.
-Survival times are in days; latent event and censoring times that do not occur by the last
-risk point are represented by infinity.
+- **Matrices** have one row per observation and one column per feature. `feature_ids` gives one
+  unique name per column, because selections and recovery targets refer to features by name.
+- **Generated arrays are read-only**, so that a dataset cannot change after its calibration
+  checks have run. Copy an array with `np.array(...)` before changing it.
+- **Results are dataclasses.** `dataclasses.asdict` turns one into a plain dictionary, for
+  example to save it as a row of a results table.
+
+`generate` draws one sample. To keep source rows apart between training, validation and test
+samples, call `partition_population` and then `generate_partitioned`. The outcome values are in
+`outcome.values` for binary, continuous and count outcomes, in `outcome.codes` for ordered
+categories, and in `outcome.time` and `outcome.event` for time to event. Times are in days. A
+drawn event or censoring time that falls after the last risk time is infinite.
 
 ## Populations and sampling
 
@@ -41,8 +46,9 @@ risk point are represented by infinity.
 
 ## Tied selections and matched references
 
-These functions split cutoff slots among tied scores and compare recovery with
-matched random selection. Import them from `pyplasmode`.
+When features tie at the cutoff of a selection, these functions share the remaining places
+among them. They also compute the recovery expected from a matched random selection
+([Matched chance recovery](evaluation.md#matched-chance-recovery)).
 
 ::: pyplasmode.nominations
 

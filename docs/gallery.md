@@ -1,41 +1,58 @@
 # Visual gallery
 
-The gallery shows how signals, feature relationships and outcome models influence a
-feature-selection benchmark. All examples use synthetic inputs.
+Three choices shape a feature-selection benchmark: how the generating features combine into a
+signal, what counts as finding them when they have correlates, and what kind of outcome is
+simulated. Each figure below varies one of these on synthetic inputs, so you can see its effect
+before you set up your own study.
 
 ## Different signals, the same features
 
+A method that fits additive effects can find a feature whose effect adds to the others and
+still miss one that matters only in combination. To test whether your method captures the
+relationships you expect in your data, give it signals of different structure built from the
+same features.
+
 ![Six response surfaces showing null, sparse, distributed, product, threshold and saturating signals](assets/patterns/signal-shapes.svg)
 
-Each panel evaluates a signal on the same two-feature grid. Colour and labelled contours
-show the standardised generating score, the number computed for each row from the
-generating features: **a**, no signal; **b**, P1 alone; **c**, the sum
-of P1 and P2; **d**, their product; **e**, a joint threshold requiring both features to be
-positive; **f**, the custom function `tanh(P1) + 0.5*tanh(P2)`.
+Each panel computes the generating score, the number calculated for each row from the
+generating features, over a grid of values of two features, P1 and P2. Colour and labelled
+contours show the score after standardisation:
 
-The sparse score varies along one axis. The distributed score varies with both features. The
-product depends on their combination. The threshold and custom examples introduce abrupt and
-saturating responses. Use these signal structures to test relationships your method should
-capture. See [Generating signals](truths.md).
+- **a**, no signal: the score is zero everywhere.
+- **b**, P1 alone: the score changes only along P1.
+- **c**, the sum of P1 and P2: the score changes with both.
+- **d**, their product: the score rises where both are high or both are low, so neither feature
+  predicts the outcome alone.
+- **e**, a joint threshold: the score takes one value where both features are positive and
+  another elsewhere, an abrupt rather than gradual change.
+- **f**, the custom function `tanh(P1) + 0.5*tanh(P2)`: the score levels off at extreme values,
+  and P1 counts twice as much as P2.
+
+[Generating signals](truths.md) describes each structure and its settings.
 
 [PDF](assets/patterns/signal-shapes.pdf) | [SVG](assets/patterns/signal-shapes.svg) |
 [Source data](assets/patterns/signal-shapes.csv)
 
 ## Finding a feature or finding its group
 
+When the generating feature has strong correlates, a model can rank a correlate first and
+predict almost as well. Whether that counts as a success decides which recovery you measure.
+
 ![A correlation matrix beside exact-feature and group-recovery curves for two example rankings](assets/patterns/correlated-recovery.svg)
 
-**a**, Pearson correlations among six features from 1,000 synthetic observations. P1 is the
-generating feature; P2 and P3 are its correlates, strongly correlated features in the same
-group. **b**, recovery of the generating feature and **c**, recovery of the group for two
-example orders:
+**a**, Pearson correlations among six features in 1,000 synthetic observations. P1 generates
+the outcome. P2 and P3 are its correlates, each correlated 0.9 with P1, and the three form one
+group. P4 to P6 are unrelated. **b**, recovery of the generating feature and **c**, recovery of
+the group, at each ranking depth, for two orders:
 
 - **Generator first:** P1, P2, P3, P4, P5, P6.
-- **Substitute first** (a correlate first): P2, P4, P5, P6, P3, P1.
+- **Substitute first:** P2, P4, P5, P6, P3, P1, which puts a correlate first and P1 last.
 
-Both orders identify the relevant group at the first rank, but only the first order identifies
-the generating feature there. Choose exact or group recovery based on what counts as a useful
-discovery in your experiment. Use `evaluate_ranking` for exact recovery and `evaluate_groups` for group recovery.
+Both orders find the group at the first rank. Only the first finds P1 there; the second finds
+it at rank six. If a correlate is as useful to you as the generating feature, for example
+because any member of the group would serve as a marker, measure group recovery with
+`evaluate_groups`. If you need the generating feature itself, measure exact recovery with
+`evaluate_ranking`.
 
 [PDF](assets/patterns/correlated-recovery.pdf) | [SVG](assets/patterns/correlated-recovery.svg) |
 [Correlations](assets/patterns/feature-correlations.csv) |
@@ -43,13 +60,22 @@ discovery in your experiment. Use `evaluate_ranking` for exact recovery and `eva
 
 ## Outcome families
 
+The same generating score can produce a binary, continuous, count, ordinal or time-to-event
+outcome. You specify each in the units you would report, such as an event probability or a
+mean, and PyPlasmode solves for the model parameters that produce them (calibration).
+
 ![Conditional response curves for binary, continuous, count, ordinal and survival outcomes](assets/patterns/outcome-families.svg)
 
-The curves show the generating functions after calibration on 2,000 synthetic observations:
-**a**, binary event probability; **b**, a continuous outcome's mean; **c**, expected counts;
-**d**, probabilities of three ordered categories; and **e**, event-free probabilities at
-generating scores of -1, 0 and +1 standard deviations. Survival curves show event-free
-probability before censoring.
+Each curve shows how the outcome depends on the generating score after calibration on 2,000
+synthetic observations, with the settings in the table:
+
+- **a**, the probability of a binary event;
+- **b**, the mean of a continuous outcome;
+- **c**, the expected count;
+- **d**, the probability of each of three ordered categories;
+- **e**, the probability of remaining event-free over time, at generating scores one standard
+  deviation (SD) below the mean, at the mean and one SD above. These curves are before
+  censoring.
 
 | Outcome | Example settings |
 | --- | --- |
@@ -67,12 +93,16 @@ The [outcome guide](outcomes.md) explains each family and its calibration.
 
 ## Generate the source tables
 
-Install PyPlasmode from [PyPI](https://pypi.org/project/pyplasmode/) and download the
-[gallery example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/pattern_gallery.py):
+To redraw the figures with other signals or outcome settings, regenerate their data tables.
+Install PyPlasmode from [PyPI](https://pypi.org/project/pyplasmode/), download the
+[gallery example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/pattern_gallery.py)
+and run it:
 
 ```bash
 python -m pip install pyplasmode
 python pattern_gallery.py --output gallery-data
 ```
 
-Modify the script's signal and outcome settings and plot its output tables.
+It writes the CSV tables and the calibrated parameters linked above to `gallery-data`. Edit the
+signal and outcome settings in the script, run it again and plot the new tables with your own
+plotting tools.
