@@ -6,6 +6,10 @@ version: 1.2.1
 abstract: "Simulate outcomes from feature data and evaluate prediction and feature selection."
 repository-code: "https://github.com/BradSegal/PyPlasmode"
 license: BSD-3-Clause
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.24518248
+    description: "All versions of PyPlasmode; each release also has its own DOI on Zenodo."
 authors:
   - family-names: Segal
     given-names: Bradley

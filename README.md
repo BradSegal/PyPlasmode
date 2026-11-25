@@ -1,5 +1,7 @@
 # PyPlasmode
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24518248.svg)](https://doi.org/10.5281/zenodo.24518248)
+
 PyPlasmode tests prediction and feature selection against a known signal. It combines your
 feature data with simulated outcomes to measure how accurately a model predicts them and how
 well it identifies the generating features used to produce them.
@@ -129,6 +131,13 @@ mistakes. See [Coding agents](https://bradsegal.github.io/PyPlasmode/agents/).
 Resampling preserves the source data's feature relationships and missingness patterns.
 It can reproduce individual records, so generated datasets require the same privacy protections
 as their source. See [Data handling](https://bradsegal.github.io/PyPlasmode/privacy-and-limitations/).
+
+## Citing
+
+Each release is archived on Zenodo. Cite the version you used; version 1.2.1 is
+[doi:10.5281/zenodo.24518249](https://doi.org/10.5281/zenodo.24518249). The DOI
+[10.5281/zenodo.24518248](https://doi.org/10.5281/zenodo.24518248) always resolves to the latest
+release. [`CITATION.cff`](https://github.com/BradSegal/PyPlasmode/blob/main/CITATION.cff) lists the authors.
 
 ## Licence
 
