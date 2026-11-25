@@ -1,4 +1,4 @@
-"""Composition of empirical resampling, truth materialisation and outcome generation."""
+"""Simulate outcomes on sampled rows, optionally in separate training, validation and test sets."""
 
 from __future__ import annotations
 
@@ -33,7 +33,17 @@ from pyplasmode.truth import (
 
 @dataclass(frozen=True, slots=True)
 class Plasmode:
-    """A generated sample with its feature data, outcomes and known signal."""
+    """Sampled features paired with simulated outcomes.
+
+    Attributes:
+        X: Read-only feature matrix in draw order.
+        feature_ids: Feature IDs in column order.
+        outcome: Simulated outcomes in row order, with model parameters.
+        truth: Score driving the outcomes and known feature-selection targets.
+        source_indices: Zero-based row indices into this sample's input pool.
+        seed: Generation seed for `generate`, or this pool's row-sampling seed for a split dataset.
+        sampling_method: Whether source rows were drawn with or without replacement.
+    """
 
     X: NDArray[np.float64]
     feature_ids: tuple[str, ...]
@@ -46,7 +56,13 @@ class Plasmode:
 
 @dataclass(frozen=True, slots=True)
 class PartitionSampleSizes:
-    """Requested sampled row counts for the three source roles."""
+    """Positive row counts for drawing separate datasets.
+
+    Attributes:
+        training: Row count for fitting.
+        validation: Row count for tuning.
+        evaluation: Row count for testing.
+    """
 
     training: int
     validation: int
@@ -60,7 +76,18 @@ class PartitionSampleSizes:
 
 @dataclass(frozen=True, slots=True)
 class PartitionedPlasmode:
-    """Three generated samples with indices into the empirical source population."""
+    """Simulated datasets for fitting, tuning and testing drawn from separate source pools.
+
+    Attributes:
+        training: Dataset for fitting.
+        validation: Dataset for tuning.
+        evaluation: Dataset for testing.
+        training_source_indices: Original training row indices, zero-based.
+        validation_source_indices: Original validation row indices, zero-based.
+        evaluation_source_indices: Original test row indices, zero-based.
+
+    Indices can repeat within a dataset. Each `Plasmode.source_indices` refers to its pool.
+    """
 
     training: Plasmode
     validation: Plasmode
@@ -116,25 +143,20 @@ def generate(
     sampling_method: SamplingMethod = "with_replacement",
     feature_sets: FeatureSets | None = None,
 ) -> Plasmode:
-    """Resample empirical rows, construct truth and generate a calibrated outcome.
+    """Sample whole feature rows and simulate one outcome per row from a known score.
 
     Args:
-        population: Source matrix of shape (observations, features).
-        truth: Specification defining the signal structure and recovery targets.
-        outcome: Observable outcome targets and effect per signal standard deviation.
-        sample_size: Positive number of generated rows.
-        seed: Non-negative seed; separate child streams control rows, truth and outcome.
-        sampling_method: With replacement by default; without replacement cannot
-            exceed the source population size.
-        feature_sets: Named groups or modules used by the truth specification.
-
-    Returns:
-        An in-memory plasmode with read-only arrays and local source-row indices.
+        truth: Specification of the outcome-generating score and feature-selection targets.
+        outcome: Outcome family, target summaries and effect or target AUC.
+        sample_size: Positive number of feature rows to draw.
+        seed: Non-negative seed for sampling rows, choosing features and drawing outcomes.
+        sampling_method: Whether repeats are allowed when drawing rows.
+        feature_sets: Feature groups required for correlated and module scores.
 
     Raises:
-        ValueError: Invalid settings or an infeasible truth or sampling request.
-        CalibrationError: Outcome targets cannot be represented by the selected model.
-        RealizationError: A sampled outcome exceeds its diagnostic tolerance.
+        ValueError: The score is invalid or sampling without replacement needs more rows.
+        CalibrationError: Outcome targets are unattainable.
+        RealizationError: The simulated outcomes fail a sampling diagnostic.
     """
     integer(seed, "seed")
     row_seed, truth_seed, outcome_seed = np.random.SeedSequence(seed).spawn(3)
@@ -237,28 +259,24 @@ def generate_partitioned(
     sampling_method: SamplingMethod = "with_replacement",
     feature_sets: FeatureSets | None = None,
 ) -> PartitionedPlasmode:
-    """Generate training, validation and test samples from separate source rows.
+    """Simulate outcomes on samples drawn from separate training, validation and test pools.
+
+    Automatic feature choices use the training pool. Preprocessing, score scaling and
+    outcome calibration use the pooled sampled rows. A role's expected rate can
+    differ from the combined-population target with its covariate distribution,
+    and its realised rate also varies with outcome sampling.
 
     Args:
-        partition: Prior source partition from ``partition_population``.
-        truth: Built-in signal specification shared across the three roles.
-        outcome: Observable outcome targets over the combined generated population.
-        sample_sizes: Positive training, validation and evaluation counts.
-        seed: Non-negative root seed for role sampling, signal construction and outcome generation.
-        sampling_method: Explicit with- or without-replacement policy within each role.
-        feature_sets: Named groups or modules, required for correlated and module truths.
-
-    Returns:
-        Three plasmodes with disjoint indices into the empirical source population.
-        Truth identities are frozen on training source rows; sampled roles share
-        one signal scaling and outcome calibration. A role's expected rate can
-        differ from the combined-population target with its covariate distribution,
-        and its realised rate also varies with outcome sampling.
+        truth: Built-in specification of the outcome-generating score and selection targets.
+        outcome: Outcome targets for the combined sample.
+        seed: Non-negative seed for rows, features and outcomes.
+        sampling_method: Whether to draw the rows in each pool with replacement.
+        feature_sets: Feature groups required for correlated and module scores.
 
     Raises:
-        ValueError: Invalid roles, unsupported custom truth, or infeasible generation.
-        CalibrationError: Outcome targets cannot be represented.
-        RealizationError: The combined generated outcome fails a diagnostic check.
+        ValueError: The score is invalid or custom, or a draw without replacement exceeds its pool.
+        CalibrationError: Outcome targets are unattainable.
+        RealizationError: The combined outcomes fail a sampling diagnostic.
     """
     integer(seed, "seed")
     role_seeds = np.random.SeedSequence(seed).spawn(6)

@@ -1,4 +1,4 @@
-"""Calibrated native-unit outcome specifications and generators."""
+"""Specify and simulate binary, continuous, count, ordinal and time-to-event outcomes."""
 
 from __future__ import annotations
 
@@ -16,20 +16,25 @@ type ParameterValue = float | str | tuple[float, ...]
 
 
 class OutcomeSpecificationError(ValueError):
-    """Raised when observable outcome targets are invalid or ambiguous."""
+    """Invalid outcome settings, such as out-of-range probabilities or conflicting effects."""
 
 
 class CalibrationError(RuntimeError):
-    """Raised when valid targets cannot be represented by the documented model."""
+    """The outcome model cannot use the supplied score or attain the requested targets."""
 
 
 class RealizationError(RuntimeError):
-    """Raised when a generated sample exceeds its sampling-error tolerance."""
+    """A simulated summary differs from its target by more than the sampling tolerance."""
 
 
 @dataclass(frozen=True, order=True, slots=True)
 class Duration:
-    """A positive native-time duration resolved to days."""
+    """A positive time interval, stored in days.
+
+    Attributes:
+        days: Finite length in days.
+        label: Non-empty display label.
+    """
 
     days: float
     label: str
@@ -63,12 +68,17 @@ def years(value: float) -> Duration:
 
 @dataclass(frozen=True, slots=True)
 class BinaryOutcome:
-    """A marginal probability with one effect or an expected AUC target.
+    """Specify a binary outcome with a target average event probability.
 
-    Specify exactly one of odds_ratio, risk_ratio, risk_difference or target_auc.
-    A target in [0.5, 1) solves an odds ratio at least one on the supplied signal
-    distribution; unattainable requests raise CalibrationError during generation.
-    Effects refer to one population standard deviation of the supplied signal.
+    Set exactly one effect or AUC target. Effects are per standard deviation increase in the
+    score that drives outcomes. An AUC target sets an odds ratio of at least one.
+
+    Attributes:
+        probability: Mean event probability across rows, in (0, 1).
+        odds_ratio: Positive finite event odds multiplier.
+        risk_ratio: Positive finite event probability multiplier.
+        risk_difference: Finite change in event probability.
+        target_auc: Expected AUC of model-implied risks, in [0.5, 1).
     """
 
     probability: float
@@ -95,7 +105,17 @@ class BinaryOutcome:
 
 @dataclass(frozen=True, slots=True)
 class ContinuousOutcome:
-    """A marginal mean and spread with an effect or variance-explained target."""
+    """Specify a Gaussian outcome with a target mean and standard deviation.
+
+    Set exactly one of `effect` and `variance_explained`. Non-zero effects require a varying
+    score that drives outcomes.
+
+    Attributes:
+        mean: Finite mean in outcome units.
+        standard_deviation: Positive standard deviation in outcome units.
+        effect: Change in the mean per score SD, with magnitude below the outcome SD.
+        variance_explained: Variance fraction in [0, 1), giving a non-negative effect.
+    """
 
     mean: float
     standard_deviation: float
@@ -124,7 +144,16 @@ class ContinuousOutcome:
 
 @dataclass(frozen=True, slots=True)
 class CountOutcome:
-    """A rate per exposure and a conditional count variance-to-mean ratio."""
+    """Specify counts per unit exposure, driven by a feature score.
+
+    Attributes:
+        rate: Expected total count divided by total exposure, finite and positive.
+        rate_ratio: Positive finite rate multiplier per score standard deviation.
+        exposure: Finite positive amounts, shared or one per row, in the rate denominator units.
+        variance_to_mean: Conditional variance divided by mean, at least one.
+
+    A ratio of one gives Poisson counts. A higher ratio gives overdispersed counts (NB1).
+    """
 
     rate: float
     rate_ratio: float
@@ -147,7 +176,15 @@ class CountOutcome:
 
 @dataclass(frozen=True, slots=True)
 class OrdinalOutcome:
-    """Ordered category probabilities with one common odds ratio."""
+    """Specify an ordered categorical outcome using a proportional odds model.
+
+    Attributes:
+        categories: At least two distinct labels, ordered lowest to highest.
+        probabilities: Positive probabilities in category order, summing to one.
+        common_odds_ratio: Positive finite multiplier on the odds of exceeding any category cutoff.
+
+    The odds ratio is per standard deviation increase in the score driving outcomes.
+    """
 
     categories: tuple[str, ...]
     probabilities: tuple[float, ...]
@@ -168,7 +205,12 @@ class OrdinalOutcome:
 
 @dataclass(frozen=True, slots=True)
 class RiskPoint:
-    """One cumulative risk at a native-time horizon."""
+    """A cumulative probability of having an event or being censored by a given time.
+
+    Attributes:
+        horizon: Elapsed time as a `Duration`.
+        probability: Cumulative probability, in [0, 1) for `TimeToEventOutcome`.
+    """
 
     horizon: Duration
     probability: float
@@ -194,16 +236,22 @@ def _risk_points(values: Mapping[Duration, float], *, name: str) -> tuple[RiskPo
 
 @dataclass(frozen=True, slots=True, init=False)
 class TimeToEventOutcome:
-    """Cumulative risks with a hazard ratio or an expected AUC target.
+    """Specify time-to-event outcomes with target cumulative event and censoring risks.
 
-    Specify exactly one of hazard_ratio or target_auc. auc_horizon must be a
-    time strictly before administrative_horizon. By default, it is the last
-    event-risk point before that cutoff, or half the cutoff if no event-risk
-    point precedes it. Independent censoring changes realised precision but not
-    the expected AUC of the generating score.
-    Administrative follow-up defaults to the last risk point; a later explicit
-    administrative_horizon retains survivors beyond the final risk point with
-    no additional event or censoring hazard. Times are in days.
+    Pass risk curves as mappings from `Duration` to nondecreasing probabilities in [0, 1).
+    Set exactly one of `hazard_ratio` and `target_auc`. Hazards are constant between
+    risk points and zero after the final point.
+
+    Attributes:
+        event_risks: Non-empty series of cumulative event probabilities before censoring.
+        hazard_ratio: Positive finite hazard multiplier per score standard deviation.
+        censoring_risks: Independent censoring risks at the same times, defaulting to zero.
+        target_auc: Expected AUC in [0.5, 1), used to set a hazard ratio of at least one.
+        auc_horizon: Time at which AUC is calibrated or reported, strictly before the cutoff.
+        administrative_horizon: Follow-up cutoff. Defaults to the last event-risk time.
+
+    The cutoff must cover every event-risk point. AUC uses uncensored event risks. Its default
+    horizon is the last risk point before the cutoff, or half the cutoff if there is none.
     """
 
     event_risks: tuple[RiskPoint, ...]
@@ -272,7 +320,16 @@ type OutcomeSpec = (
 
 @dataclass(frozen=True, slots=True)
 class CalibrationCheck:
-    """One target, expectation, realization and sampling-error tolerance."""
+    """A simulated summary checked against its target.
+
+    Attributes:
+        name: Summary name.
+        target: Requested value.
+        expected: Model expectation on the calibration rows.
+        realized: Summary from the simulated draw.
+        tolerance: Maximum absolute difference from target, in the summary's units.
+        within_tolerance: Whether the draw met that bound. Failed checks raise `RealizationError`.
+    """
 
     name: str
     target: float
@@ -284,12 +341,18 @@ class CalibrationCheck:
 
 @dataclass(frozen=True, slots=True)
 class CalibrationResult:
-    """Solved parameters, marginal checks and expected oracle discrimination.
+    """Parameters and diagnostics for the model used to simulate outcomes.
 
-    oracle_auc integrates conditional case/control probabilities over independent
-    draws from the empirical supplied signal population; it is not a realised
-    sample AUC. It is reported for binary and survival outcomes when defined.
-    target_auc is None when discrimination was not explicitly targeted.
+    Attributes:
+        family: Outcome model family.
+        parameters: Parameter names and values, also available through `parameter_dict`.
+        checks: Comparisons of targets, model expectations and simulated summaries.
+        oracle_auc: Expected AUC of model-implied risk for binary or survival outcomes.
+        target_auc: Requested expected AUC, or `None` if no AUC was requested.
+
+    Expected AUC compares risks over independent case-control draws, with half credit for ties.
+    For survival it uses uncensored risks at the AUC horizon. It is `None` when unavailable,
+    including when the model implies zero probability of a case or control.
     """
 
     family: str
@@ -316,7 +379,12 @@ def _readonly(values: NDArray[np.generic]) -> NDArray[np.generic]:
 
 @dataclass(frozen=True, slots=True)
 class BinaryGeneratedOutcome:
-    """Generated binary labels and calibration."""
+    """Simulated binary outcomes for the input rows.
+
+    Attributes:
+        values: Read-only vector, zero for non-events and one for events.
+        calibration: Model parameters, event-probability check and expected AUC.
+    """
 
     values: NDArray[np.int8]
     calibration: CalibrationResult
@@ -327,7 +395,12 @@ class BinaryGeneratedOutcome:
 
 @dataclass(frozen=True, slots=True)
 class ContinuousGeneratedOutcome:
-    """Generated continuous values and calibration."""
+    """Simulated continuous outcomes for the input rows.
+
+    Attributes:
+        values: Read-only vector in the units of the specified outcome mean.
+        calibration: Model parameters and checks on mean and standard deviation.
+    """
 
     values: NDArray[np.float64]
     calibration: CalibrationResult
@@ -338,7 +411,13 @@ class ContinuousGeneratedOutcome:
 
 @dataclass(frozen=True, slots=True)
 class CountGeneratedOutcome:
-    """Generated counts, exposure and calibration."""
+    """Simulated event counts and their exposures.
+
+    Attributes:
+        values: Read-only vector of non-negative integer counts, one per row.
+        exposure: Read-only exposure amounts in the supplied units, one per row.
+        calibration: Model parameters and rate check.
+    """
 
     values: NDArray[np.int64]
     exposure: NDArray[np.float64]
@@ -351,7 +430,13 @@ class CountGeneratedOutcome:
 
 @dataclass(frozen=True, slots=True)
 class OrdinalGeneratedOutcome:
-    """Generated ordinal codes, category labels and calibration."""
+    """Simulated ordered categories for the input rows.
+
+    Attributes:
+        codes: Read-only vector of zero-based indices into `categories`.
+        categories: Labels in lowest-to-highest order.
+        calibration: Model parameters and category proportion checks.
+    """
 
     codes: NDArray[np.int64]
     categories: tuple[str, ...]
@@ -363,7 +448,17 @@ class OrdinalGeneratedOutcome:
 
 @dataclass(frozen=True, slots=True)
 class SurvivalGeneratedOutcome:
-    """Observed follow-up, event state and latent generation times."""
+    """Simulated event times, censoring times and observed follow-up.
+
+    Attributes:
+        time: Days to the first of event, independent censoring or administrative cutoff.
+        event: True when the event occurs by both censoring and the administrative cutoff.
+        latent_event_time: Days to event before applying censoring, or infinity if none occurred.
+        censoring_time: Days to independent censoring, or infinity if none occurred.
+        calibration: Model parameters, risk checks and expected AUC.
+
+    The arrays are read-only and have one entry per input row.
+    """
 
     time: NDArray[np.float64]
     event: NDArray[np.bool_]
@@ -839,24 +934,20 @@ def generate_outcome(
     signal: NDArray[np.float64],
     rng: np.random.Generator,
 ) -> GeneratedOutcome:
-    """Calibrate and draw an outcome from a finite one-dimensional signal.
+    """Match the model to the targets and draw one outcome per score.
 
     Args:
-        spec: Native-unit outcome specification.
-        signal: Finite vector, standardised internally to mean zero and unit
-            population standard deviation; constant vectors represent no signal.
-        rng: Caller-owned NumPy generator.
+        signal: Finite non-empty score vector, rescaled to mean zero and unit population SD.
+            Constant scores are replaced with zeros.
 
     Returns:
-        Typed outcome arrays and solved calibration parameters. Survival times
-        are in days, with administrative censoring at ``spec.administrative_horizon``.
+        Read-only outcome arrays and model diagnostics. Survival times are in days.
 
     Raises:
-        OutcomeSpecificationError: Invalid targets or exposure dimensions,
-            or a non-zero continuous effect or explained-variance request with
-            constant signal.
-        CalibrationError: The chosen family cannot attain a requested target.
-        RealizationError: Finite-sample diagnostics exceed the declared tolerance.
+        OutcomeSpecificationError: Exposure vector length differs from the score length, or Gaussian
+            generation has fewer than two rows or a non-zero effect with a constant score.
+        CalibrationError: The model cannot use the score or attain the requested targets.
+        RealizationError: Simulated summaries fail a sampling diagnostic.
     """
     z = _signal(signal)
     if isinstance(spec, BinaryOutcome):

@@ -74,7 +74,15 @@ def evaluate_ranking(
     *,
     depths: tuple[int, ...],
 ) -> RankingEvaluation:
-    """Evaluate exact generating-feature recovery at declared leading depths."""
+    """Measure how many exact generating features appear at the top of a ranking.
+
+    Args:
+        ranking: Every input feature ID once, most important first.
+        depths: Non-empty tuple of strictly increasing cutoffs from one to the feature count.
+
+    Raises:
+        ValueError: The supplied truth defines no exact targets in `direct_features`.
+    """
     ordered = _ranking(ranking, truth.feature_universe)
     checked_depths = _depths(depths, len(ordered))
     target = set(truth.direct_features)
@@ -109,7 +117,15 @@ def evaluate_groups(
     *,
     depths: tuple[int, ...],
 ) -> GroupEvaluation:
-    """Evaluate recovery of at least one admissible feature per declared group."""
+    """Count target groups with at least one member among the top-ranked features.
+
+    Args:
+        ranking: Every input feature ID once, most important first.
+        depths: Non-empty tuple of strictly increasing cutoffs from one to the feature count.
+
+    Raises:
+        ValueError: The supplied truth defines no target groups.
+    """
     ordered = _ranking(ranking, truth.feature_universe)
     checked_depths = _depths(depths, len(ordered))
     groups = truth.admissible_groups
@@ -129,7 +145,15 @@ def evaluate_module(
     *,
     depths: tuple[int, ...],
 ) -> ModuleEvaluation:
-    """Evaluate absolute-weight coverage of a distributed truth module."""
+    """Measure the share of total absolute generating weight among the top-ranked features.
+
+    Args:
+        ranking: Every input feature ID once, most important first.
+        depths: Non-empty tuple of strictly increasing cutoffs from one to the feature count.
+
+    Raises:
+        ValueError: The supplied truth defines no feature weights.
+    """
     ordered = _ranking(ranking, truth.feature_universe)
     checked_depths = _depths(depths, len(ordered))
     weights = {item.feature: abs(item.weight) for item in truth.weights}
@@ -158,7 +182,16 @@ def evaluate_graph_region(
     region: tuple[str, ...],
     depths: tuple[int, ...],
 ) -> GraphRegionEvaluation:
-    """Evaluate region recovery, with edge coverage unavailable if no edges exist."""
+    """Measure how much of a named set of graph nodes a ranking's top features contain.
+
+    Args:
+        ranking: Every node of `graph` once, most important first.
+        region: The nodes to look for, a non-empty subset of the graph's nodes.
+        depths: Non-empty tuple of strictly increasing cutoffs from one to the node count.
+
+    Returns:
+        A `GraphRegionEvaluation` containing one `GraphRegionAtDepth` per cutoff.
+    """
     ordered = _ranking(ranking, graph.nodes)
     checked_depths = _depths(depths, len(ordered))
     region_set = set(region)
@@ -203,7 +236,22 @@ def evaluate_signal_reconstruction(
     development_indices: ArrayLike,
     evaluation_indices: ArrayLike,
 ) -> SignalReconstructionEvaluation:
-    """Fit a linear reconstruction on development rows and score it on held-out rows."""
+    """Fit a linear model of the score that drives outcomes and test it on held-out rows.
+
+    Missing values are filled using medians from the fitting rows. An empty selection
+    predicts the mean score of those rows.
+
+    Args:
+        X: Feature matrix with observations in rows.
+        feature_ids: Unique IDs in column order.
+        selected_features: Unique IDs of the columns used for prediction.
+        signal: Finite generating score in row order.
+        development_indices: Distinct zero-based row indices for fitting.
+        evaluation_indices: Distinct zero-based test indices, disjoint from the fitting rows.
+
+    Raises:
+        ValueError: The test rows contain fewer than two distinct score values.
+    """
     matrix = np.asarray(X, dtype=np.float64)
     target = np.asarray(signal, dtype=np.float64)
     if matrix.ndim != 2 or target.shape != (matrix.shape[0],):
@@ -241,7 +289,17 @@ def evaluate_signal_reconstruction(
 def evaluate_prediction(
     target: ArrayLike, prediction: ArrayLike, *, metric: PredictionMetric
 ) -> PredictionEvaluation:
-    """Compute a supported prediction metric from supplied targets and predictions."""
+    """Score predictions on the observations used to make them.
+
+    Args:
+        target: Finite outcome vector in prediction order. Classification labels are zero or one.
+        prediction: Finite vector. Higher scores predict class one for AUC and average precision.
+        metric: `"roc_auc"`, `"average_precision"`, `"log_loss"`, `"r2"` or `"rmse"`.
+
+    Raises:
+        ValueError: AUC lacks either class, average precision lacks positives, log loss receives
+            values outside [0, 1], or R-squared has fewer than two distinct outcomes.
+    """
     observed = np.asarray(target, dtype=np.float64)
     estimated = np.asarray(prediction, dtype=np.float64)
     if (
@@ -289,7 +347,13 @@ def evaluate_panel(
     *,
     metric: PredictionMetric,
 ) -> PanelEvaluation:
-    """Compare a panel's supplied predictions with reference-model predictions."""
+    """Compare a selected-feature model with a reference model using the same observations.
+
+    Args:
+        reference_prediction: Reference model predictions in `target` order.
+        panel_prediction: Predictions from the selected features in `target` order.
+        metric: Scoring rule, with the same input requirements as `evaluate_prediction`.
+    """
     reference = evaluate_prediction(target, reference_prediction, metric=metric)
     panel = evaluate_prediction(target, panel_prediction, metric=metric)
     return PanelEvaluation(
@@ -326,7 +390,13 @@ def rank_stability(
     depth: int,
     persistence: float = 0.9,
 ) -> RankStabilityEvaluation:
-    """Summarize pairwise leading-set, Spearman and rank-biased overlap stability."""
+    """Measure how much feature rankings agree at the top and across their full length.
+
+    Args:
+        rankings: At least two rankings of the same two or more features, most important first.
+        depth: Number of leading features per ranking, from one to the feature count.
+        persistence: Rank-biased overlap parameter in (0, 1). Smaller values weight the top more.
+    """
     if len(rankings) < 2:
         raise ValueError("rank_stability requires at least two rankings")
     universe = tuple(rankings[0])
@@ -373,7 +443,12 @@ def rank_stability(
 
 
 def summarize_replicates(values: ArrayLike, *, failure_count: int = 0) -> ReplicateSummary:
-    """Summarize replicate estimates with a 95% Monte Carlo t interval."""
+    """Summarise estimates from independent simulations with a 95% t interval for the mean.
+
+    Args:
+        values: One finite estimate per successful simulation, with at least two estimates.
+        failure_count: Non-negative count of omitted failed simulations.
+    """
     if not np.isrealobj(values):
         raise ValueError("replicate estimates must be real-valued")
     estimates = np.asarray(values, dtype=np.float64)
@@ -414,15 +489,19 @@ def compare_paired_replicates(
     *,
     allow_unmatched: bool = False,
 ) -> PairedReplicateComparison:
-    """Summarise right-minus-left differences after aligning replicate identities.
+    """Compare procedures on the same simulated datasets using right-minus-left differences.
 
-    Each ID must uniquely identify an independent simulated dataset.
-    ``None`` marks a failed estimate. Non-finite numeric estimates raise an error.
-    IDs must match by default. Opt-in intersection reports exclusions. At least
-    two successful pairs are required for a 95% Monte Carlo t interval. With
-    failures, the comparison is conditional on joint success and can differ
-    from the comparison across all planned datasets. A positive difference
-    favours the right procedure only for metrics where larger values are better.
+    Use only jointly successful pairs. Selective failures can bias the overall comparison.
+
+    Args:
+        left_ids: Unique IDs of the independent datasets scored by the left procedure.
+        left_values: Finite estimates in left ID order, with `None` for failures.
+        right_ids: Unique IDs of the independent datasets scored by the right procedure.
+        right_values: Finite estimates in right ID order, with `None` for failures.
+        allow_unmatched: Use shared IDs and report unmatched counts. By default ID sets must match.
+
+    Raises:
+        ValueError: Fewer than two pairs succeed on both sides.
     """
     left = _replicate_values(left_ids, left_values)
     right = _replicate_values(right_ids, right_values)

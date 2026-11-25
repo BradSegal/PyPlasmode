@@ -11,7 +11,13 @@ from pyplasmode.data import Population
 
 @dataclass(frozen=True, slots=True)
 class StructureAlignment:
-    """Explicit alignment of structure identities to a population."""
+    """Comparison of declared feature IDs with the columns of a feature matrix.
+
+    Attributes:
+        mapped: Declared IDs found in the matrix, in column order.
+        unmapped: Declared IDs missing from the matrix, sorted by ID.
+        excluded: Matrix IDs absent from the declaration, in column order.
+    """
 
     mapped: tuple[str, ...]
     unmapped: tuple[str, ...]
@@ -36,7 +42,13 @@ class FeatureSet:
 
 @dataclass(frozen=True, slots=True)
 class FeatureSets:
-    """An ordered collection of named feature sets."""
+    """Store named feature groups for defining scores that drive simulated outcomes.
+
+    Attributes:
+        sets: Non-empty collection of uniquely named groups.
+
+    Groups may overlap. `CorrelatedTruth` requires its chosen groups to be disjoint.
+    """
 
     sets: tuple[FeatureSet, ...]
 
@@ -48,14 +60,14 @@ class FeatureSets:
             raise ValueError("feature-set names must be unique")
 
     def get(self, name: str) -> FeatureSet:
-        """Return one named feature set or fail explicitly."""
+        """Return the feature set with the given name or raise `ValueError` if it is unknown."""
         for item in self.sets:
             if item.name == name:
                 return item
         raise ValueError(f"unknown feature set: {name}")
 
     def align(self, population: Population) -> StructureAlignment:
-        """Report mapped, unmapped and population-excluded identities."""
+        """Compare the combined members of these sets with the columns of `population`."""
         declared = {member for item in self.sets for member in item.members}
         population_ids = set(population.feature_ids)
         return StructureAlignment(
@@ -84,7 +96,12 @@ class FeatureEdge:
 
 @dataclass(frozen=True, slots=True)
 class FeatureGraph:
-    """A weighted undirected graph over named features."""
+    """Connect related features in an undirected graph for selection scoring.
+
+    Attributes:
+        nodes: Non-empty tuple of unique feature IDs.
+        edges: Distinct undirected edges between those IDs. An empty tuple is allowed.
+    """
 
     nodes: tuple[str, ...]
     edges: tuple[FeatureEdge, ...]
@@ -109,7 +126,7 @@ class FeatureGraph:
             pairs.add(pair)
 
     def align(self, population: Population) -> StructureAlignment:
-        """Report mapped, unmapped and population-excluded graph nodes."""
+        """Compare the graph's node IDs with the columns of `population`."""
         graph_nodes = set(self.nodes)
         population_ids = set(population.feature_ids)
         return StructureAlignment(

@@ -1,4 +1,4 @@
-"""Truth specifications and deterministic signal materialisation."""
+"""Define the score that drives simulated outcomes and the targets for feature selection."""
 
 from __future__ import annotations
 
@@ -18,7 +18,13 @@ type TruthKind = Literal["null", "sparse", "correlated", "module", "interaction"
 
 @dataclass(frozen=True, slots=True)
 class RecoveryGroup:
-    """A declared recovery group with an optional direct generating feature."""
+    """A group counted as found when at least one member is selected.
+
+    Attributes:
+        name: Group identifier.
+        direct_feature: Member used directly in the score, or `None` if none is designated.
+        features: Unique eligible feature IDs, including the direct feature if designated.
+    """
 
     name: str
     direct_feature: str | None
@@ -33,7 +39,12 @@ class RecoveryGroup:
 
 @dataclass(frozen=True, slots=True)
 class FeatureWeight:
-    """One feature's unstandardized contribution to a distributed signal."""
+    """A signed feature weight whose magnitude counts towards weighted recovery.
+
+    Attributes:
+        feature: Feature ID.
+        weight: Finite, non-zero weight. In additive scores it multiplies a standardised feature.
+    """
 
     feature: str
     weight: float
@@ -46,7 +57,23 @@ class FeatureWeight:
 
 @dataclass(frozen=True, slots=True)
 class MaterializedTruth:
-    """The realised signal and recovery targets for its signal structure."""
+    """The score driving simulated outcomes and the targets for scoring feature selection.
+
+    Attributes:
+        kind: Score design, such as `"sparse"` or `"custom"`.
+        signal: Read-only score in input row order.
+        feature_universe: All input feature IDs in column order.
+        direct_features: IDs counted as exact selection targets.
+        admissible_groups: Groups credited when a selection includes any member.
+        weights: Signed coefficients for scoring coverage by absolute weight.
+        graph_region: Target graph node IDs.
+        center: Mean before score standardisation.
+        scale: Population standard deviation before score standardisation.
+        description: Label for the design.
+
+    Unused target tuples are empty. For a score built by `materialize_truth`,
+    `center` and `scale` are both zero in the null case.
+    """
 
     kind: TruthKind
     signal: NDArray[np.float64]
@@ -98,7 +125,17 @@ class NullTruth:
 
 @dataclass(frozen=True, slots=True)
 class SparseTruth:
-    """An exact sparse truth selected explicitly or by seeded weak-correlation search."""
+    """Use a weighted sum of selected standardised features to drive outcomes.
+
+    Specify either feature IDs or a count. Automatic selection searches in seeded random
+    order and raises `ValueError` if it cannot find enough features within the correlation limit.
+
+    Attributes:
+        count: Number of features to pick automatically.
+        features: Unique IDs of explicitly chosen features, also the exact selection targets.
+        weights: Finite, non-zero coefficients in explicit feature order, defaulting to one.
+        max_absolute_correlation: Search limit on absolute Pearson correlation, in [0, 1).
+    """
 
     count: int | None = None
     features: tuple[str, ...] = ()
@@ -120,7 +157,18 @@ class SparseTruth:
 
 @dataclass(frozen=True, slots=True)
 class CorrelatedTruth:
-    """A signal from one sentinel or the mean in each group of correlates."""
+    """Define a weighted sum of one feature or the mean from each of several disjoint groups.
+
+    A selection finds a group if it contains any member. The input data determines the correlations.
+
+    Attributes:
+        group_names: Names of the groups in `FeatureSets`, in coefficient order.
+        sentinels: One generating feature per group, or empty for seeded choices in sentinel mode.
+        weights: Finite, non-zero group coefficients, defaulting to one.
+        signal_form: `"sentinels"` uses one z-score. `"group_means"` averages member z-scores.
+
+    In `"group_means"` mode, leave `sentinels` empty. Only sentinels are exact selection targets.
+    """
 
     group_names: tuple[str, ...]
     sentinels: tuple[str, ...] = ()
@@ -143,7 +191,14 @@ class CorrelatedTruth:
 
 @dataclass(frozen=True, slots=True)
 class ModuleTruth:
-    """A weighted state distributed across one declared feature set."""
+    """Define a generating score as a weighted sum over a named set of standardised features.
+
+    Attributes:
+        set_name: Name of the set in `FeatureSets`.
+        weights: Finite, non-zero coefficients in set order, defaulting to one.
+
+    Coverage divides the absolute weight selected by the total absolute weight.
+    """
 
     set_name: str
     weights: tuple[float, ...] = ()
@@ -155,7 +210,13 @@ class ModuleTruth:
 
 @dataclass(frozen=True, slots=True)
 class InteractionTruth:
-    """A pairwise feature product or joint threshold indicator."""
+    """Define a generating score that depends jointly on two standardised features.
+
+    Attributes:
+        features: Two distinct feature IDs that form the joint selection target.
+        operation: `"product"` multiplies values. `"threshold"` tests if both exceed the cutoff.
+        threshold: Finite cutoff in feature standard deviations. The test yields zero or one.
+    """
 
     features: tuple[str, str]
     operation: Literal["product", "threshold"] = "product"
@@ -173,7 +234,18 @@ class InteractionTruth:
 
 @dataclass(frozen=True, slots=True)
 class CustomSignal:
-    """A custom signal and its explicit recovery semantics."""
+    """Supply a user-defined score that drives outcomes and optional targets for feature selection.
+
+    Attributes:
+        signal: Finite, non-constant score with one value per input row.
+        direct_features: Feature IDs counted as exact targets.
+        groups: Groups credited when any member is selected.
+        weights: Signed coefficients used to score coverage by absolute weight.
+        graph_region: Target feature IDs for graph scoring.
+        description: Optional label for the design.
+
+    All target feature IDs must occur in the input columns.
+    """
 
     signal: NDArray[np.float64]
     direct_features: tuple[str, ...] = ()
@@ -190,7 +262,13 @@ type CustomTruthFunction = Callable[
 
 @dataclass(frozen=True, slots=True)
 class CustomTruth:
-    """A conforming callable used to materialise an extension truth."""
+    """Define the score that drives outcomes with a user-supplied function.
+
+    Attributes:
+        function: Callback taking a read-only matrix, column IDs and a seeded NumPy generator.
+
+    Return a `CustomSignal` with identical scores, targets and label for identical inputs and seed.
+    """
 
     function: CustomTruthFunction
 
@@ -326,22 +404,19 @@ def materialize_truth(
     seed: int,
     feature_sets: FeatureSets | None = None,
 ) -> MaterializedTruth:
-    """Materialise a declared signal structure on an empirical matrix.
+    """Compute the score that drives simulated outcomes and record the feature-selection targets.
+
+    Built-in feature scores use median-imputed, standardised columns. The resulting score has
+    mean zero and unit population standard deviation. A null specification gives all zeros.
 
     Args:
-        truth: Built-in signal specification or deterministic custom signal function.
-        population: Numeric feature matrix and ordered identifiers.
-        seed: Non-negative integer controlling data-derived truth selection.
-        feature_sets: Named memberships required by correlated and module truths.
-
-    Returns:
-        Standardised generating score and explicit recovery targets. The input
-        matrix is unchanged. Null truth has a zero signal and no targets.
+        truth: Built-in specification or `CustomTruth` callback.
+        seed: Non-negative integer for automatic choices or the custom callback.
+        feature_sets: Named feature groups required by correlated and module specifications.
 
     Raises:
-        ValueError: Invalid identities, weights or settings, unavailable or
-            constant required features, or an infeasible sparse selection.
-        TypeError: Unsupported specification type.
+        ValueError: Required features are unavailable or a non-null score is constant.
+        TypeError: The specification type is unsupported.
     """
     integer(seed, "seed")
     if isinstance(truth, NullTruth):

@@ -1,4 +1,4 @@
-"""Shared validation at public array and configuration boundaries."""
+"""Check integer settings, row indices and feature identifiers."""
 
 from numbers import Integral
 

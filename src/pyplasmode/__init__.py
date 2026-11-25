@@ -1,4 +1,4 @@
-"""Plasmode generation with known signals and feature-recovery evaluation."""
+"""Simulate outcomes on feature data and test whether models find the features that drive them."""
 
 from pyplasmode import metrics
 from pyplasmode.data import (
