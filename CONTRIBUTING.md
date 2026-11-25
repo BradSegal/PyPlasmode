@@ -53,7 +53,9 @@ library with model fitting, tuning and explanation tools.
 
 ## Releases and compatibility
 
-Record public changes in the changelog. Incompatible API or statistical-definition changes
+Record public changes in the changelog. For each release, set `version` and `date-released` in
+`CITATION.cff`, which Zenodo uses for the archive record, and update the citation in the README.
+Incompatible API or statistical-definition changes
 increment the major version; compatible additions increment the minor version, and fixes
 increment the patch version. Explain corrections that affect numerical results in the release notes.
 Record random seeds and dependency versions when sharing reproducible analyses.

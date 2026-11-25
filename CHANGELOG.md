@@ -17,6 +17,8 @@ One addition to the graph evaluator; otherwise documentation. Existing results a
 - Public docstrings say what each name is and what each argument and result field means.
 - The references page lists plain citations.
 - The contributing guide separates everyday checks from release checks.
+- The README gives a citation to copy, with BibTeX, and badges for the PyPI version, supported
+  Python versions, tests, documentation and licence.
 - The examples of two more pages (signals and methods) run in the test suite.
 
 ### Fixed
