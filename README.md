@@ -1,5 +1,10 @@
 # PyPlasmode
 
+[![PyPI](https://img.shields.io/pypi/v/pyplasmode)](https://pypi.org/project/pyplasmode/)
+[![Python versions](https://img.shields.io/pypi/pyversions/pyplasmode)](https://pypi.org/project/pyplasmode/)
+[![Tests](https://github.com/BradSegal/PyPlasmode/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/BradSegal/PyPlasmode/actions/workflows/ci.yml)
+[![Documentation](https://github.com/BradSegal/PyPlasmode/actions/workflows/docs.yml/badge.svg?branch=main)](https://bradsegal.github.io/PyPlasmode/)
+[![Licence](https://img.shields.io/pypi/l/pyplasmode)](https://github.com/BradSegal/PyPlasmode/blob/main/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24518248.svg)](https://doi.org/10.5281/zenodo.24518248)
 
 A model can predict an outcome well while ranking the wrong features first. In real data, you
@@ -133,11 +138,29 @@ handling](https://bradsegal.github.io/PyPlasmode/privacy-and-limitations/).
 
 ## Citing
 
-Each release is archived on Zenodo. Cite the version you used; version 1.2.1 is
-[doi:10.5281/zenodo.24518249](https://doi.org/10.5281/zenodo.24518249). The DOI
-[10.5281/zenodo.24518248](https://doi.org/10.5281/zenodo.24518248) always resolves to the latest
-release. [`CITATION.cff`](https://github.com/BradSegal/PyPlasmode/blob/main/CITATION.cff) lists the
-authors.
+If you use PyPlasmode, please cite the version you used. For version 1.2.1:
+
+> Segal B, Fieggen J, Simond G, Belgrave D, Clifton D, Clifton L. PyPlasmode (version 1.2.1).
+> Zenodo; 2026. <https://doi.org/10.5281/zenodo.24518249>
+
+```bibtex
+@software{segal2026pyplasmode,
+  author    = {Segal, Bradley and Fieggen, Joshua and Simond, Greg and Belgrave, Danielle and
+               Clifton, David and Clifton, Lei},
+  title     = {PyPlasmode},
+  version   = {1.2.1},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.24518249},
+  url       = {https://doi.org/10.5281/zenodo.24518249}
+}
+```
+
+Each release is archived on Zenodo with its own DOI, and
+[10.5281/zenodo.24518248](https://doi.org/10.5281/zenodo.24518248) always resolves to the latest.
+On GitHub, "Cite this repository" in the sidebar gives APA and BibTeX forms from
+[`CITATION.cff`](https://github.com/BradSegal/PyPlasmode/blob/main/CITATION.cff), with the DOI
+for all versions.
 
 ## Licence
 
