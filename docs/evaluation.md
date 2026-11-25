@@ -138,13 +138,35 @@ structure (`kind`), have non-overlapping target features and equal target counts
 `estimand="group"`, features otherwise). Group membership sizes may differ; the
 matched-reference expectation accounts for those sizes.
 
-## Graph regions without edges
+## Graph regions
 
-`evaluate_graph_region` reports node coverage for every non-empty valid region, and edge
-coverage where the region has edges. If its induced graph has no edges, `edge_coverage`
-is `None` and `target_edge_count` is zero: an absent edge target is not zero recovery.
-Summaries must report how many regions have an evaluable edge denominator and must not
-replace unavailable edge coverage by zero.
+A graph region is a set of features you name within a `FeatureGraph`: for example, the members
+of one pathway in an interaction network. `evaluate_graph_region` measures how much of the
+region lies in the top `depth` features of a ranking of the graph's nodes.
+
+- `node_coverage` is the fraction of the region's features that are selected.
+- `edge_coverage` is the fraction of the region's edges with both ends selected. Only edges
+  joining two features of the region count, and `target_edge_count` is their number.
+
+```python
+import pyplasmode as ppm
+
+network = ppm.FeatureGraph(
+    nodes=("A", "B", "C", "D", "E"),
+    edges=(ppm.FeatureEdge("A", "B"), ppm.FeatureEdge("C", "D")),
+)
+node_ranking = ("A", "B", "E", "C", "D")
+region_result = ppm.evaluate_graph_region(
+    node_ranking, network, region=("A", "B", "C", "D"), depths=(2,)
+)
+print(region_result.at_depth[0].node_coverage)  # 0.5: A and B of four features
+print(region_result.at_depth[0].edge_coverage)  # 0.5: A-B of two edges
+```
+
+A region whose features share no edges has no edge coverage to measure: `edge_coverage` is
+`None` and `target_edge_count` is 0. When you average over regions, leave these out of the
+edge average and report how many were left out. Counting them as zero would understate
+recovery.
 
 ## Ranking stability
 
