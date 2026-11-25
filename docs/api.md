@@ -1,19 +1,26 @@
 # API reference
 
-This page lists the signatures, types and result fields of the public API. See
-[Methods](methods.md) for generation and [Evaluation](evaluation.md) for scoring.
+Once you know which function you need, you can look up its arguments, defaults and errors here.
+The guides explain when to use each: [Methods](methods.md) for generation and
+[Evaluation](evaluation.md) for scoring.
 
-The common entry points are exported from `pyplasmode`. Matrices have shape
-`(observations, features)`; `feature_ids` supplies one unique string per column.
-Generated arrays are read-only. Convert result dataclasses to plain records with
-`dataclasses.asdict`.
+Import every function, and every class you construct, from `pyplasmode`; the functions in
+`pyplasmode.metrics` are the exception. A few conventions hold throughout:
 
-Use `generate` for one sample or `partition_population` followed by
-`generate_partitioned` to keep source rows separate between training, validation and test. Access
-`outcome.values` for binary, continuous and count outcomes, `outcome.codes` for
-ordinal outcomes, and `outcome.time` plus `outcome.event` for survival outcomes.
-Survival times are in days; latent event and censoring times beyond administrative
-follow-up are represented by infinity.
+- **Matrices** have one row per observation and one column per feature. `feature_ids` gives one
+  unique name per column, because selections and recovery targets refer to features by name.
+- **Generated arrays are read-only**, so that a dataset cannot change after its calibration
+  checks have run. Copy an array with `np.array(...)` before changing it.
+- **Results are dataclasses.** `dataclasses.asdict` turns one into a plain dictionary, for
+  example to save it as a row of a results table.
+
+To keep source rows separate between training, validation and test samples, call
+`partition_population` then `generate_partitioned`. The outcome values are in `outcome.values`
+for binary, continuous and count outcomes, `outcome.codes` for ordered categories, and
+`outcome.time` and `outcome.event` for time to event. Times are in days. The latent event time
+(`latent_event_time`) and independent censoring time (`censoring_time`) are drawn before
+applying the end of follow-up. Either is infinite if the corresponding event or censoring does
+not occur by the last risk time.
 
 ## Populations and sampling
 
@@ -41,8 +48,10 @@ follow-up are represented by infinity.
 
 ## Tied selections and matched references
 
-The `nominations` module represents selections with membership weights, so tied scores
-can share a place in a leading list. It also compares recovery with matched random selection.
+When features tie at the cutoff of a selection, these functions split the remaining places among
+them. They also compute the recovery expected by chance, from random selections that keep the
+observed selection probabilities within each matching group ([Matched chance
+recovery](evaluation.md#matched-chance-recovery)).
 
 ::: pyplasmode.nominations
 

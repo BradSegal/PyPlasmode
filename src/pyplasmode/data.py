@@ -1,4 +1,4 @@
-"""Empirical populations and deterministic complete-row resampling."""
+"""Split feature data into disjoint pools and sample whole rows with source indices."""
 
 from __future__ import annotations
 
@@ -34,10 +34,13 @@ def _readonly_indices(values: NDArray[np.int64]) -> NDArray[np.int64]:
 
 @dataclass(frozen=True, slots=True)
 class Population:
-    """A numeric feature matrix with stable ordered column identities.
+    """Store a non-empty feature matrix for sampling.
 
-    Missing values are retained. Infinite values, duplicate identities and shape mismatches
-    are rejected.
+    Attributes:
+        X: Read-only numeric matrix, observations by features.
+        feature_ids: Unique column IDs, non-empty strings without surrounding whitespace.
+
+    Use NaN for missing measurements. Infinite values raise `ValueError`.
     """
 
     X: NDArray[np.float64]
@@ -54,18 +57,24 @@ class Population:
 
     @property
     def sample_count(self) -> int:
-        """Return the number of empirical rows."""
+        """Return the number of rows."""
         return int(self.X.shape[0])
 
     @property
     def feature_count(self) -> int:
-        """Return the number of feature columns."""
+        """Return the number of columns."""
         return int(self.X.shape[1])
 
 
 @dataclass(frozen=True, slots=True)
 class ResampledPopulation:
-    """A complete-row sample and its in-memory source-row indices."""
+    """Whole rows drawn from a feature matrix.
+
+    Attributes:
+        X: Read-only matrix of sampled rows in draw order.
+        feature_ids: Feature IDs in column order.
+        source_indices: Read-only zero-based indices into the input matrix. Repeats are allowed.
+    """
 
     X: NDArray[np.float64]
     feature_ids: tuple[str, ...]
@@ -83,13 +92,24 @@ class ResampledPopulation:
         object.__setattr__(self, "source_indices", _readonly_indices(indices))
 
     def as_population(self) -> Population:
-        """Return the sampled rows as a population for truth materialisation."""
+        """Return a `Population` without the source indices."""
         return Population(self.X, self.feature_ids)
 
 
 @dataclass(frozen=True, slots=True)
 class PopulationPartition:
-    """Disjoint empirical populations with indices into the source matrix."""
+    """Disjoint fitting, tuning and test pools with identical columns.
+
+    Attributes:
+        training: Rows for fitting.
+        validation: Rows for tuning.
+        evaluation: Rows for testing.
+        training_source_indices: Original training row indices, zero-based.
+        validation_source_indices: Original validation row indices, zero-based.
+        evaluation_source_indices: Original test row indices, zero-based.
+
+    Every original row index occurs once.
+    """
 
     training: Population
     validation: Population
@@ -138,11 +158,18 @@ def partition_population(
     validation_fraction: float,
     seed: int,
 ) -> PopulationPartition:
-    """Partition empirical rows before any complete-row resampling.
+    """Randomly split feature rows into disjoint training, validation and test pools.
 
-    The evaluation fraction is the remainder after training and validation.
-    Fractions determine integer boundaries by floor; every role must retain at
-    least one source row.
+    The training and validation sizes are their fractions times the row count, rounded down.
+    The remaining rows go to the test pool.
+
+    Args:
+        training_fraction: Positive training fraction.
+        validation_fraction: Positive validation fraction. The fractions must sum to less than one.
+        seed: Non-negative integer for shuffling rows.
+
+    Raises:
+        ValueError: The seed or fractions are invalid, or the requested split leaves a pool empty.
     """
     integer(seed, "seed")
     if (
@@ -179,7 +206,7 @@ def resample_population(
     sample_size: int,
     rng: np.random.Generator,
 ) -> ResampledPopulation:
-    """Sample complete empirical rows with replacement using ``rng``."""
+    """Sample whole rows uniformly with replacement and return their zero-based source indices."""
     integer(sample_size, "sample_size", minimum=1)
     indices = rng.integers(0, population.sample_count, size=sample_size, dtype=np.int64)
     return ResampledPopulation(population.X[indices], population.feature_ids, indices)
@@ -192,20 +219,15 @@ def sample_population(
     *,
     method: SamplingMethod = "with_replacement",
 ) -> ResampledPopulation:
-    """Sample complete empirical rows under an explicit replacement policy.
+    """Draw whole rows uniformly and return them with zero-based source indices.
 
     Args:
-        population: Source feature matrix and column identities.
-        sample_size: Number of rows to return.
-        rng: NumPy random generator controlling row selection.
-        method: Sampling with replacement or sampling without replacement.
-
-    Returns:
-        Selected complete rows and their source indices.
+        sample_size: Positive number of rows to draw.
+        method: `"with_replacement"` allows repeats. `"without_replacement"` draws distinct rows.
 
     Raises:
-        ValueError: If the size or method is invalid, or a sample without
-            replacement exceeds the source population.
+        ValueError: The size is not a positive integer, the method is unsupported, or a draw
+            without replacement exceeds the available row count.
     """
     if method == "with_replacement":
         return resample_population(population, sample_size, rng)

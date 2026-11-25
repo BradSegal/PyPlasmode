@@ -20,7 +20,16 @@ type RecoveryEstimand = Literal["exact", "group", "module", "interaction"]
 
 @dataclass(frozen=True, slots=True)
 class FractionalNomination:
-    """A feature selection with fractional membership for tied positive scores."""
+    """A feature selection that splits the last slots equally among features tied at the cutoff.
+
+    Attributes:
+        feature_ids: Unique candidate IDs in membership vector order.
+        membership: Read-only selection probability in [0, 1] for each candidate.
+        requested_depth: Number of slots requested, from one to the candidate count.
+        positive_support: All IDs with positive importance scores, even below the cutoff.
+
+    The probabilities sum to the smaller of the requested slots and the positive-score count.
+    """
 
     feature_ids: tuple[str, ...]
     membership: NDArray[np.float64]
@@ -64,12 +73,15 @@ class FractionalNomination:
 
     @property
     def achieved_size(self) -> int:
-        """Return the number of features with non-zero selection membership."""
+        """Count features with positive selection probability."""
         return int(np.count_nonzero(self.membership > 0.0))
 
     @property
     def selected_features(self) -> tuple[str, ...]:
-        """Return the depth-limited features with non-zero selection probability."""
+        """Return the IDs with positive selection probability, in input order.
+
+        A tie at the cutoff gives more IDs than the requested depth.
+        """
         return tuple(
             feature
             for feature, weight in zip(self.feature_ids, self.membership, strict=True)
@@ -78,7 +90,7 @@ class FractionalNomination:
 
     @property
     def membership_budget(self) -> float:
-        """Return the sum of feature-selection membership probabilities."""
+        """Sum the selection probabilities."""
         return float(np.sum(self.membership))
 
 
@@ -88,19 +100,15 @@ def nomination_from_scores(
     *,
     depth: int,
 ) -> FractionalNomination:
-    """Select leading positive scores, sharing remaining slots among tied features.
+    """Select the highest positive scores, splitting the remaining slots equally at a tie.
 
     Args:
-        feature_ids: Unique feature identities aligned to scores.
-        scores: Finite non-negative method-specific importance scores.
-        depth: Requested number of leading features.
+        feature_ids: Unique candidate IDs in score order.
+        scores: Finite, non-negative importance scores.
+        depth: Number of slots requested, from one to the feature count.
 
     Returns:
-        Feature membership probabilities summing to the smaller of depth and
-        the number of positive scores. Zero-score features are not selected.
-
-    Raises:
-        ValueError: If identities, scores, or depth are invalid.
+        Selection probabilities in input order.
     """
     values = np.asarray(scores, dtype=np.float64)
     integer(depth, "depth", minimum=1)
@@ -172,20 +180,21 @@ def evaluate_fractional_recovery(
     estimand: RecoveryEstimand,
     allow_subset: bool = False,
 ) -> FractionalRecovery:
-    """Score a feature selection against the chosen recovery target.
+    """Score how well a selection finds known targets, averaging over uniform tie-breaking.
 
     Args:
-        nomination: Feature membership probabilities, including tied scores.
-        truth: Materialized signal and recovery targets on the same feature universe.
-        estimand: Exact, group, module, or interaction recovery definition.
-        allow_subset: Permit a declared candidate subset. Unavailable targets retain
-            their place in the denominator and receive no recovery credit.
-
-    Returns:
-        Bounded recovery with explicit truth and selection support.
+        nomination: Selection with candidate IDs in the same order as the truth's feature IDs.
+        truth: Recovery targets used to score the selection.
+        estimand: `"exact"` averages selection probabilities across exact targets, `"group"`
+            averages the probability of selecting any member per group, `"module"` gives the
+            fraction of absolute weight expected to be selected, and `"interaction"` gives the
+            probability of selecting both exact targets.
+        allow_subset: Allow any subset or reordering of the input feature IDs. Features omitted
+            from the candidates have zero selection probability, and all targets remain in scope.
 
     Raises:
-        ValueError: If feature universes are incompatible or the estimand has no target.
+        ValueError: Candidate IDs do not match the input feature IDs under `allow_subset`, or
+            the requested recovery measure is unsupported or has no valid targets.
     """
     if nomination.feature_ids != truth.feature_universe and not (
         allow_subset and set(nomination.feature_ids).issubset(truth.feature_universe)
@@ -466,20 +475,19 @@ def sample_matched_nominations(
     draws: int,
     seed: int,
 ) -> tuple[FractionalNomination, ...]:
-    """Randomise feature selections within strata while preserving counts and ties.
+    """Draw random selections that match the observed one within each matching group (`strata`).
+
+    Each draw keeps the number of positive scores and the selection probabilities assigned
+    within every group.
 
     Args:
-        nomination: Observed selection memberships and the identities with positive scores.
-        strata: A group label per feature, defined without outcomes or generating truth.
-        draws: Positive number of independent random selections.
-        seed: Non-negative random seed.
+        strata: Non-empty group labels in feature order, independent of outcomes and targets.
+        draws: Positive number of independent selections.
+        seed: Non-negative integer for random assignments.
 
-    Returns:
-        Selections with the same positive-score counts and membership weights
-        in each stratum, reassigned to randomly chosen feature identities.
 
     Raises:
-        ValueError: If geometry, draw count, or seed is invalid.
+        ValueError: Invalid strata, draw count or seed.
     """
     integer(draws, "draws", minimum=1)
     integer(seed, "seed")
@@ -504,20 +512,23 @@ def evaluate_matched_recovery(
     strata: tuple[str, ...],
     allow_subset: bool = False,
 ) -> MatchedRecovery:
-    """Compare observed recovery with expected recovery under matched random selection.
+    """Measure recovery above chance: observed recovery minus that of matched random selection.
+
+    Returns the observed recovery, its expectation under matched random selection and their
+    difference, which is negative when the selection does worse than chance.
+
+    Calculate chance recovery analytically by reassigning positive-score status and selection
+    probabilities within each matching group (`strata`), preserving their counts and values.
 
     Args:
-        nomination: Observed selection memberships and the identities with positive scores.
-        truth: Materialized truth used only by the recovery evaluator.
-        estimand: Recovery definition for the signal structure.
-        strata: A group label per feature, defined without outcomes or generating truth.
-
-    Returns:
-        Observed recovery, its analytic chance expectation, and recovery above
-        chance (observed minus expected).
+        truth: Known targets for scoring the selection.
+        estimand: Recovery measure as in `evaluate_fractional_recovery`.
+        strata: Non-empty group labels in feature order, independent of outcomes and targets.
+        allow_subset: Allow any subset or reordering of the input feature IDs. Omitted features
+            have zero selection probability in observed and chance recovery.
 
     Raises:
-        ValueError: If geometry or truth are invalid.
+        ValueError: The strata, candidate IDs or recovery targets are incompatible.
     """
     observed = evaluate_fractional_recovery(
         nomination, truth, estimand=estimand, allow_subset=allow_subset
@@ -578,22 +589,23 @@ def evaluate_outcome_specificity(
     strata: tuple[str, ...],
     allow_subset: bool = False,
 ) -> OutcomeSpecificity:
-    """Compare recovery of the model's generating signal with other disjoint signals.
+    """Compare recovery above chance for the outcome's own targets and alternative targets.
+
+    Recovery above chance is observed minus expected recovery under matched random selection.
+    Use the same selection and matching groups for every set of targets. Return the outcome's
+    recovery above chance, the mean over alternatives and the difference between the two.
 
     Args:
-        nomination: Feature selection to evaluate unchanged against each signal.
-        own_truth: Generating signal for the outcome used to fit the model.
-        foreign_truths: Other signals with the same structure and recovery-target count.
-        estimand: Definition of exact, group, module, or interaction recovery.
-        strata: Outcome-blind matching stratum for every candidate feature.
-        allow_subset: Evaluate a declared subset against unchanged generating truths.
-
-    Returns:
-        Recovery above chance for the generating signal, its mean across the other
-        signals, and the difference between those two values.
+        own_truth: Generating score and recovery targets for the simulated outcome.
+        foreign_truths: Alternative signals with the same `kind`, ordered feature IDs and
+            target count for `estimand`, and disjoint target features.
+        estimand: Recovery measure as in `evaluate_fractional_recovery`.
+        strata: Non-empty group labels in feature order, independent of outcomes and targets.
+        allow_subset: Allow a candidate subset while scoring against all targets.
 
     Raises:
-        ValueError: If truths are missing, incompatible, or have overlapping targets.
+        ValueError: Inputs are invalid, there are no alternatives, targets overlap across
+            signals, or signals differ in kind, ordered feature IDs or target count for `estimand`.
     """
     if not foreign_truths:
         raise ValueError("specificity requires at least one foreign truth")

@@ -1,11 +1,20 @@
 # Calibrating to a target AUC
 
-Use `target_auc` when simulation difficulty is easier to specify than an odds or hazard ratio.
-The target is the AUC (area under the ROC curve) of the generating score, the discrimination
-attainable when the source of risk is known, reported as `oracle_auc`. A model fitted on finite
-training data will typically have lower held-out AUC. The generator solves for a non-negative
-coefficient for the score, giving a ratio of at least one per standard deviation of the
-generating score while maintaining the requested marginal probability or event risks.
+A target AUC answers the question "how hard is the prediction task you are simulating?". An odds
+ratio of 2 says how strongly the generating score acts on the outcome, but not that. The AUC
+(area under the ROC curve) of the true risks does: it is the probability that a randomly chosen
+case has a higher risk than a randomly chosen control, with ties counted as half. No model can
+expect to rank better than the true risks, so this AUC is the ceiling for every method you test.
+
+Set `target_auc` on `BinaryOutcome` or `TimeToEventOutcome` in place of an odds or hazard ratio.
+PyPlasmode then:
+
+1. searches over the log odds ratio or log hazard ratio per standard deviation of the score;
+2. at each trial value, solves for the intercept, or the baseline hazards, that match your event
+   probability or event risks;
+3. computes the expected AUC of the true risks, without drawing outcomes
+   ([What is solved](#what-is-solved));
+4. keeps the ratio that gives the target and draws the outcome with it.
 
 ```python
 import numpy as np
@@ -17,86 +26,114 @@ binary = ppm.generate_outcome(
     signal,
     np.random.default_rng(3),
 )
-assert abs(binary.calibration.oracle_auc - 0.7) < 1e-7
 odds_ratio = binary.calibration["odds_ratio"]
+print(round(binary.calibration.oracle_auc, 3), round(odds_ratio, 2))  # 0.7 2.15
 ```
 
-For survival, set `auc_horizon` strictly before the administrative cutoff.
-It defaults to the last event-risk point before the cutoff, or half the cutoff
-if no event-risk point precedes it. Interior horizons interpolate the cumulative
-baseline hazard under the specified piecewise-constant rates. To target ten
-years when the only risk point is at ten years, set
-`administrative_horizon=ppm.years(11)`. Survivors then remain under observation without additional events or censoring
-between the final risk point and that later cutoff. The example below instead
-includes year 11 as a risk point, which also specifies additional
-event and censoring risk between years 10 and 11. Independent censoring changes
-the precision of a censoring-aware estimate, but not the AUC of the generating
-score or the solved hazard ratio.
+`generate_outcome` draws an outcome from a score you supply, here 20,000 standard normal values,
+without sampling rows. An odds ratio of 2.15 gives this score an expected AUC of the true risks
+(`oracle_auc`, or *oracle* AUC) of 0.7 at a 10% event probability.
+
+For a time-to-event outcome the AUC is measured at one time, `auc_horizon`: cases have an event by
+then, and controls are still event-free after it. The horizon must be strictly before the end of
+follow-up, `administrative_horizon`, because otherwise no one is observed past it to serve as a
+control in [`cumulative_dynamic_auc`](metrics.md#censored-discrimination). Follow-up ends by
+default at the last event-risk time, and the horizon defaults to the last event-risk time strictly
+before that, or to half the end of follow-up if there is none. With a single ten-year risk:
+
+| Setting | End of follow-up | AUC horizon |
+| --- | --- | --- |
+| Defaults | 10 years | 5 years |
+| `administrative_horizon=ppm.years(11)` | 11 years | 10 years |
+
+To calibrate the AUC at ten years, set follow-up to end at eleven years. People who are
+event-free and still under follow-up at ten years are then followed to eleven and serve as
+controls. No events occur after year ten because the event rate is zero after the last risk
+time. To allow later events, add a later risk time with a higher risk.
 
 ```python
-horizon = ppm.years(10)
+print(ppm.TimeToEventOutcome({ppm.years(10): 0.005}, target_auc=0.72).auc_horizon.days)  # 1826.25
+
 survival = ppm.generate_outcome(
     ppm.TimeToEventOutcome(
-        event_risks={horizon: 0.005, ppm.years(11): 0.006},
+        event_risks={ppm.years(10): 0.005},
         target_auc=0.72,
-        auc_horizon=horizon,
-        censoring_risks={horizon: 0.05, ppm.years(11): 0.055},
+        censoring_risks={ppm.years(10): 0.05},
+        administrative_horizon=ppm.years(11),
     ),
     signal,
     np.random.default_rng(3),
 )
-assert abs(survival.calibration.oracle_auc - 0.72) < 1e-7
 hazard_ratio = survival.calibration["hazard_ratio"]
+print(survival.calibration["auc_horizon_days"])  # 3652.5
+print(round(survival.calibration.oracle_auc, 3), round(hazard_ratio, 2))  # 0.72 2.29
 ```
+
+The target and the solved hazard ratio use event risk before censoring, so the 5% censoring does
+not change them. It does reduce the number of observed events, which makes an AUC measured on the
+drawn data less precise.
+
+In one finite dataset, a fitted model's AUC can be above or below the AUC of the generating
+score on the same rows, because both are estimates with sampling error. This is chance, not a
+sign that the model beats the true risks.
 
 ## What is solved
 
-The generating score is standardised on the supplied rows. Binary outcomes use logistic
-probabilities; survival outcomes use `1-exp(-H0(t)*exp(beta*z))`. For each trial
-coefficient, the intercept or baseline hazard is recalibrated to the requested
-marginal risk. Brent root-finding then matches the expected AUC of the
-generating score.
+The quantity the solver matches tells you what the target means and why a drawn dataset's AUC
+differs from it. The expected AUC is computed from the rows' event probabilities. Let `p_i` be row
+`i`'s event probability, or, for survival, its risk by `auc_horizon` before censoring. Each ordered
+pair of rows `(i, j)` is weighted by `p_i * (1 - p_j)`, the chance that `i` is a case and `j` a
+control. The expected AUC is the share of the total pair weight for which `p_i > p_j`, with half
+credit when they are equal. The two rows are drawn independently, so a row is also paired with
+itself, as both case and control, and gets half credit.
 
-The expectation is over case/control pairs drawn independently from the empirical distribution
-of the generating score. The same source row can be drawn twice, and ties receive half credit.
-`CalibrationResult.oracle_auc` records the achieved expectation and `target_auc` the request.
-AUC realised in one outcome sample varies with the seed, sample size, event count and censoring.
-The solved effect is deterministic for a given generating score and specification. Rerunning
-with the same seed repeats the outcomes.
+The solved ratio, in `calibration["odds_ratio"]` or `calibration["hazard_ratio"]`, depends only on
+the score and the specification, so the same inputs always give the same ratio. The AUC of a drawn
+dataset varies around the target, because it depends on which rows have events and which events
+censoring hides.
 
-`generate_partitioned` calibrates once on the combined partition covariates,
-so its returned samples share one solved effect. Calling `generate` separately
-on training and test cohorts solves `target_auc` independently on each cohort.
-Use `generate_partitioned` for a shared signal, or extract the solved ratio
-with `train.outcome.calibration["odds_ratio"]` and pass it explicitly for test
-outcomes. Their marginal baselines are still recalibrated separately.
-
-`CalibrationResult.parameter_dict` returns a fresh parameter mapping;
-`calibration["signal_coefficient"]` looks up one value.
+`generate_partitioned` solves one effect on the training, validation and test rows together, so
+all three samples share it. Separate calls to `generate` each solve their own effect, which
+therefore changes from dataset to dataset, for example across sample sizes. To hold it fixed,
+solve it once and pass the ratio as `odds_ratio` or `hazard_ratio` to later calls; each call still
+recalibrates the intercept or baseline hazards, so every dataset keeps your event probability or
+risks.
 
 ## Invalid and unattainable targets
 
-Specify exactly one binary effect measure or `target_auc`, and exactly one
-survival `hazard_ratio` or `target_auc`. A target must lie in `[0.5, 1)`; invalid
-specifications raise `OutcomeSpecificationError`. A survival target requires an
-event risk above zero and below one at the first risk point at or after its horizon.
+The constructor refuses an invalid target with `OutcomeSpecificationError`:
 
-A target of 0.5 solves ratio one, including for a constant generating score, which
-cannot attain a higher target. Ties and the distribution of the score can also limit
-attainable discrimination. The solver supports log ratios from zero to eight,
-independently of the largest value of the score. Logistic probabilities use `expit`
-and the intercept bracket expands to cover the supplied offsets. Survival
-multipliers saturate at `exp(-700)` and `exp(700)` to keep extreme tail hazards
-finite. No observations are dropped or winsorised. A request outside the
-supported effect range or the attainable discrimination raises
-`CalibrationError`; it is never silently clipped.
+- **Anything but exactly one effect setting**, because each setting determines the effect on its
+  own: one of `odds_ratio`, `risk_ratio`, `risk_difference` or `target_auc` for a binary outcome,
+  one of `hazard_ratio` or `target_auc` for survival.
+- **A target outside the range from 0.5 (included) to 1 (excluded).** An AUC of 0.5 is chance, and
+  a score that ranks worse than chance has a reversed sign, which the solver does not search. An
+  AUC of 1 needs every true risk to be exactly 0 or 1, which no finite ratio gives.
+- **A survival target with no cases.** A survival AUC needs cases by the horizon, so a zero event
+  risk at the first risk time at or after `auc_horizon` (the last risk time if the horizon is
+  later) is refused. A risk of 1 is invalid at every risk time.
+
+Generation raises `CalibrationError` for a valid target your score cannot reach:
+
+- **A constant score** ties every pair, so it can reach only 0.5; a target of 0.5 sets the ratio
+  to 1 for any score.
+- **Tied scores** can cap the AUC, because a case and a control with the same risk get half
+  credit whatever the ratio. How much depends on how the events can fall between the tied values:
+  with a 10% event probability, a score from one binary feature present in half the rows cannot
+  reach 0.8, but one present in a tenth of the rows can reach 0.99.
+- **The search range** covers log ratios from 0 to 8, ratios from 1 to about 2,981 per standard
+  deviation. A target that needs more is refused rather than clipped.
+
+To resolve it, check the score for ties or lack of variation, or lower `target_auc`.
+
+For survival, each row's log hazard multiplier, `beta * z`, is limited to −700 to 700 before
+exponentiating, so that the multiplier stays finite and positive.
 
 ## Validation
 
-The statistical suite checks the expected AUC to absolute tolerance `1e-7`.
-Generated binary AUCs are checked within 0.025 across probabilities 0.02, 0.2
-and 0.5 and targets 0.5, 0.6, 0.75 and 0.9, using 80,000 synthetic observations
-per cell. Survival checks use 120,000 observations, event risks 0.005, 0.05 and
-0.2, censoring risks 0, 0.05 and 0.3, and targets 0.5, 0.61, 0.72 and 0.79;
-the realised IPCW tolerance is 0.035. These are reproducible simulation checks,
-not a guarantee of this accuracy for a user's smaller sample.
+The [test suite](validation.md#test-suite) checks that the solved expected AUC equals the target
+within `1e-7`, over a grid of event risks and targets, with censoring also varied for survival.
+It also draws outcomes: the AUC of the true risks is within 0.025 of the target for 80,000 binary
+rows, and within 0.035 for 120,000 survival rows measured with `cumulative_dynamic_auc`. In a
+smaller sample the realised AUC varies more, as
+[Methods](methods.md#discrimination-and-repeated-selections) shows for 200 rows.

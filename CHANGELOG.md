@@ -1,5 +1,43 @@
 # Changelog
 
+## Unreleased
+
+One addition to the graph evaluator; otherwise documentation. Existing results are unchanged.
+
+### Added
+
+- `evaluate_graph_region` reports `weighted_edge_coverage`: the summed weight of the region's
+  edges with both ends selected, divided by the summed weight of all the region's edges. Edge
+  weights were stored but not used before. `edge_coverage` still counts every edge equally.
+
+### Changed
+
+- Every guide section says what it is for, gives the reason for each instruction and walks
+  through its examples with their printed output. The tutorial reads as one lesson.
+- Public docstrings say what each name is and what each argument and result field means.
+- The references page lists plain citations.
+- The contributing guide separates everyday checks from release checks.
+- The examples of two more pages (signals and methods) run in the test suite.
+
+### Fixed
+
+- The front page said a single-metric evaluator returns a number; it returns a result object
+  with the number in `value`.
+- The prose for `evaluate_panel` named the panel and the reference in the opposite order to the
+  function's arguments.
+- `failure_count` in `summarize_replicates` was described as keeping failed runs in the summary;
+  it records the count, and the mean and interval use successful runs only.
+- The benchmark page described its three target AUCs as effect sizes.
+- The calibration page said a fitted model's held-out AUC is typically below that of the
+  generating score; in a finite sample the difference can take either sign.
+- The API page said latent survival times beyond administrative follow-up are infinite; they are
+  infinite when the event does not occur by the last risk point.
+- Graph edges were described as weighted in evaluation, but no function used the weight.
+- Generation was described as sampling complete rows; it draws whole rows, missing values
+  included.
+- The realisation tolerances for ordered categories and for survival event and censoring risks
+  are stated.
+
 ## 1.2.1 — 2026-11-25
 
 A documentation release. The library computes the same results as 1.2.0: no executable code

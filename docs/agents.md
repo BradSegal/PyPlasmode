@@ -1,23 +1,20 @@
 # Using PyPlasmode with a coding agent
 
-The repo includes a skill package for teaching a coding agent how to design, run, and read a
-plasmode simulation with PyPlasmode. It covers the order of steps, which signal structure and
-recovery measure are appropriate for a question, and pitfalls that lead to misleading
-simulations.
+A coding agent asked to benchmark feature selection can write a simulation that runs but answers the
+wrong question. It may split the data after resampling, so that copies of a row reach both training
+and test; read recovery without comparing it with chance; or report a single simulated dataset. The
+[`skills/pyplasmode`](https://github.com/BradSegal/PyPlasmode/tree/main/skills/pyplasmode) skill
+gives the agent the workflow and the checks that prevent these mistakes.
 
-The package is the folder
-[`skills/pyplasmode`](https://github.com/BradSegal/PyPlasmode/tree/main/skills/pyplasmode).
-It follows the open skill layout: a `SKILL.md` file with a name, a description of when to use
-it and the instructions, and a `references` folder with complete recipes. If your coding agent
-supports this skill format, copy the folder to its skill directory. You can also ask an agent
-with file access to read `SKILL.md` and the recipes it points to. Running the examples needs a
-supported Python version with PyPlasmode installed.
+The skill follows the open skill layout, a `SKILL.md` file and a `references` folder of complete
+recipes. If your coding agent supports this format, copy the folder into its skill directory, so
+that the agent loads the skill whenever a task matches its description. Otherwise, ask an agent with
+file access to read `SKILL.md` and its recipes before it starts.
 
-Recipes cover repeating a study and comparing two procedures, correlated features with group
-recovery, how recovery varies with sample size, time-to-event outcomes with censoring, and
-calibrating difficulty with a target AUC. The test suite runs the Python examples against the
-public API.
+The recipes cover procedure comparisons, group recovery, sample size, censored time-to-event
+outcomes and target AUCs. The test suite runs every Python example in the skill against the
+library to check that the examples still work as the library changes.
 
-The skill uses the same terms as this documentation. Simulated datasets include source rows, so
-the [data handling guidance](privacy-and-limitations.md) applies to anything an agent writes to
+The generated matrices contain copies of source rows, so the
+[data handling guidance](privacy-and-limitations.md) applies to anything an agent writes to
 disk.

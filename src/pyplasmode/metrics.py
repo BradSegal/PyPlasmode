@@ -1,7 +1,6 @@
 """Selection agreement, censoring-aware discrimination and participant uncertainty.
 
 Rankings and predictions must already share feature or participant identities.
-These metrics do not fit models or move data.
 """
 
 from __future__ import annotations
@@ -35,10 +34,16 @@ __all__ = [
 
 @dataclass(frozen=True, slots=True)
 class SelectionStability:
-    """Expected Nogueira stability, including independent boundary-tie resolution.
+    """Agreement of feature selections across refits after accounting for chance.
 
-    ``value`` is None when every refit selects no features or all features.
-    ``membership_budgets`` count slots; tied features can occupy fractional slots.
+    Attributes:
+        value: One if all refits always select the same features, zero at chance and negative
+            below chance. Identical cutoff ties can reduce the score below one.
+        feature_ids: Feature order from the first refit.
+        frequencies: Mean selection probability per feature in ID order.
+        membership_budgets: Total selection probability per refit in input order.
+
+    The score is `None` when every refit selects nothing or every refit selects all features.
     """
 
     value: float | None
@@ -49,10 +54,16 @@ class SelectionStability:
 
 @dataclass(frozen=True, slots=True)
 class ConsensusRanking:
-    """Inclusion-first consensus; equal evidence retains equal comparison ranks.
+    """Ordering by mean selection probability, then median rank.
 
-    Fields are aligned to ``feature_ids``. ``ranking`` uses feature names only
-    to order storage within an evidence tie; use ``ranks`` for comparisons.
+    Attributes:
+        feature_ids: Input feature order for the ranks, probabilities and medians.
+        ranking: Sorted feature IDs, alphabetised within ties.
+        ranks: One-based ranks from the combined ordering, averaged among features tied in both
+            frequency and median rank.
+        inclusion_probabilities: Mean selection probability across refits.
+        median_selected_ranks: Median within-refit rank over refits in which the feature had
+            positive selection probability, or infinity if it always had zero probability.
     """
 
     feature_ids: tuple[str, ...]
@@ -63,15 +74,16 @@ class ConsensusRanking:
 
 
 def selection_stability(nominations: Sequence[FractionalNomination]) -> SelectionStability:
-    """Return chance-corrected top-k stability allowing unequal achieved budgets.
+    """Measure how consistently refits select the same features above chance.
 
-    Uses Definition 4 of Nogueira, Sechidis and Brown (JMLR 2018). For fractional
-    memberships, averages the binary-selection variance over independent uniform
-    resolutions of each refit's boundary tie. Treating membership weights as
-    observed binary selections would incorrectly reward uninformative ties.
-    Unequal row budgets cap maximum stability below one. Negative values are
-    possible and are not clipped. Requires at least two
-    refits with the same universe of at least two features; orders may differ.
+    The Nogueira score is one minus the mean across features of the sample variance of their
+    selection indicators across refits, divided by `p * (1 - p)`, where `p` is the mean fraction of
+    features selected per refit.
+    It averages over independent uniform resolutions of ties at each cutoff. It is negative
+    when observed variance exceeds chance. Unequal numbers of slots cap the score below one.
+
+    Args:
+        nominations: At least two selections on the same set of at least two features, in any order.
     """
     if len(nominations) < 2 or len(nominations[0].feature_ids) < 2:
         raise ValueError("stability requires at least two refits and two features")
@@ -111,21 +123,21 @@ def rank_biased_overlap(
     persistence: float = 0.9,
     tie_method: Literal["webber", "independent"] = "webber",
 ) -> float:
-    """Return finite extrapolated RBO on aligned complete rank vectors.
+    """Measure agreement between two rankings, giving the top positions more weight.
 
-    Lower values mean better ranks; equal values indicate ties. Convert higher
-    importance scores with ``rankdata(-scores, method="average")`` first.
-    The default ``tie_method="webber"`` follows Webber et al. (2010), Equation 28
-    in section 4.6 of the author's manuscript: prefixes contain whole tie groups
-    starting at or before depth d, and
-    agreement is twice their intersection divided by their combined sizes.
-    Identical tied rankings have agreement one.
+    Args:
+        left_ranks: Finite ranks for two or more features. Lower is better. Equal ranks are ties.
+        right_ranks: Finite ranks for the same features in the same order.
+        persistence: Value in (0, 1). Smaller values weight the top more.
+        tie_method: `"webber"` includes whole ties. `"independent"` breaks ties at random.
 
-    ``tie_method="independent"`` instead averages over independent uniform
-    tie-breaking permutations. An all-tied ranking then has self-agreement below
-    one. This is a different estimand from the published tie convention.
-    Prefix weights are (1-p)*p**(d-1), with complete-list tail p**(n-1).
-    Requires equal complete universes and 0 < persistence < 1.
+    Returns:
+        Weighted agreement in [0, 1]. For `"webber"`, each cutoff uses twice the shared count
+        divided by the combined sizes of the two top lists. For `"independent"`, it averages the
+        shared fraction over independent uniform resolutions, so identical tied lists can score
+        below one. At depth `d`, weight the agreement by `(1 - p) * p**(d - 1)`, where `p` is
+        `persistence`. At the full feature count `n`, both lists contain all features, so the
+        final agreement is one and receives the remaining weight `p**(n - 1)`.
     """
     left, right = _ranks(left_ranks), _ranks(right_ranks)
     if left.shape != right.shape:
@@ -162,12 +174,17 @@ def rank_biased_overlap(
 def consensus_ranking(
     feature_ids: tuple[str, ...], scores: ArrayLike, *, depth: int
 ) -> ConsensusRanking:
-    """Order features by mean top-k membership, then median selected rank.
+    """Combine the feature selections of several refits into one ranking.
 
-    ``scores`` is a refit-by-feature matrix of non-negative importances. Positive
-    boundary ties use ``nomination_from_scores``. Median ranks use only refits
-    with positive membership; never-selected features receive infinity. Evidence
-    ties remain tied. At least two refits are required; depth may span the universe.
+    Features are ordered by mean selection probability across refits. Ties are broken by median
+    within-refit rank over the refits in which the feature had positive selection probability.
+
+    Positive ties at the cutoff share the remaining slots equally.
+
+    Args:
+        feature_ids: Unique column IDs for `scores`.
+        scores: Finite, non-negative importance scores, with one row per refit (at least two).
+        depth: Number of selection slots per refit, from one to the feature count.
     """
     identities(feature_ids, "feature_ids")
     values = np.asarray(scores, dtype=np.float64)
@@ -240,23 +257,28 @@ def cumulative_dynamic_auc(
     horizon: float,
     tied_tolerance: float = 0.0,
 ) -> float:
-    """Estimate cumulative/dynamic AUC at one horizon using training IPCW.
+    """Measure how well risk scores separate events by a cutoff from known event-free observations.
 
-    Cases have observed events at or before horizon; controls have observed time
-    strictly beyond it. Censoring at or before the horizon is excluded. Cases receive 1/G(time),
-    using a reverse Kaplan-Meier censoring curve from the training sample.
-    Controls' common 1/G(horizon) cancels. Independent censoring is assumed.
-    All time arrays and horizon must use the same units. Higher risk means a
-    higher event risk. The default uses exact score ties, credited one half.
-    A positive ``tied_tolerance`` groups adjacent scores into tie blocks,
-    including transitive chains, as in scikit-survival. This can merge
-    distinct scores in densely spaced predictions.
+    Cases have an observed event by the cutoff. Controls have follow-up beyond it. Censoring
+    by the cutoff is excluded. Under independent censoring, each case is weighted by the inverse
+    probability of remaining uncensored at its event time, estimated by reverse Kaplan-Meier
+    on the training rows. Administrative follow-up must extend beyond the evaluation horizon.
 
-    Raises ValueError for missing cases/controls, a nonpositive or nonfinite
-    horizon, a horizon at or beyond maximum training follow-up, zero censoring
-    support or invalid arrays. Events exactly at the
-    horizon are cases; censoring exactly there is not a control. Administrative
-    follow-up must extend beyond the evaluation horizon.
+    Args:
+        training_time: Positive finite follow-up for at least two training rows.
+        training_event: Training indicators in row order, zero for censoring or one for event.
+        time: Positive finite follow-up for at least two test rows.
+        event: Test indicators in row order, zero for censoring or one for event.
+        risk: Finite scores increasing with event risk, in test row order.
+        horizon: Positive cutoff in the same units as both time vectors.
+        tied_tolerance: Finite non-negative gap for chaining adjacent scores into ties.
+
+    Returns:
+        Weighted share of case-control pairs with higher case risk, giving ties half credit.
+
+    Raises:
+        ValueError: No cases or controls, the horizon reaches maximum training follow-up, or
+            estimated censoring survival is zero at a case time or the horizon.
     """
     train_t, train_e = _survival(training_time, training_event)
     times, events = _survival(time, event)
@@ -288,10 +310,17 @@ def cumulative_dynamic_auc(
 
 @dataclass(frozen=True, slots=True)
 class BootstrapDifference:
-    """Right-minus-left participant bootstrap with a percentile interval.
+    """Paired bootstrap difference and percentile interval.
 
-    Undefined draws are retained as None and excluded jointly. The interval is
-    conditional on successful draws; attempted/failed counts remain explicit.
+    Attributes:
+        left: Left estimate on the original sample.
+        right: Right estimate on the original sample.
+        difference: Right minus left on the original sample.
+        confidence_level: Requested coverage in (0, 1).
+        confidence_interval_low: Lower percentile bound across successful draws.
+        confidence_interval_high: Upper percentile bound across successful draws.
+        differences: Right minus left for each draw in order, with `None` for failures.
+        failed_resamples: Draw count with either estimate undefined.
     """
 
     left: float
@@ -312,19 +341,26 @@ def paired_bootstrap_difference(
     confidence_level: float = 0.95,
     seed: int = 0,
 ) -> BootstrapDifference:
-    """Resample participants jointly and return right-minus-left uncertainty.
+    """Estimate uncertainty for a metric difference using shared participant resamples.
 
-    The callback receives the same integer row indices for both methods and
-    returns their two estimates, or None when either estimate is undefined.
-    It must preserve method pairing and fixed fitted models; it may re-estimate
-    evaluation nuisance parameters if appropriate. Training samples remain fixed
-    unless the callback explicitly resamples them. Supply a row count or a sequence
-    of unique IDs, including a one-dimensional NumPy string array. Exactly
-    resamples draws are attempted; at least two must succeed. Exceptions and
-    non-finite estimates are errors, not silently discarded failures.
+    Draw the original number of rows with replacement and return the right-minus-left metric
+    difference with a percentile interval over successful draws. For uncertainty on fixed models,
+    keep fitted models and training data fixed. Recompute any evaluation quantities that depend
+    on the resampled rows in the callback, such as the evaluation sample's mean outcome used as a
+    baseline.
 
-    This percentile interval describes participant sampling for fixed models.
-    Use ``compare_paired_replicates`` for comparisons across independent simulated datasets.
+    Args:
+        participants: Row count, or unique participant IDs in row order. Both forms require at
+            least two participants.
+        statistic: Takes zero-based row indices and returns finite left and right estimates,
+            or `None` if either is undefined. Use the same indices for both estimates.
+        resamples: Number of attempted draws, at least two.
+        confidence_level: Percentile interval coverage in (0, 1).
+        seed: Non-negative sampling seed.
+
+    Raises:
+        ValueError: Inputs are invalid, the callback returns invalid estimates or the original
+            comparison is undefined, or fewer than two draws succeed.
     """
     if isinstance(participants, (int, np.integer)):
         integer(participants, "participants", minimum=2)
@@ -382,7 +418,13 @@ def paired_bootstrap_difference(
 
 @dataclass(frozen=True, slots=True)
 class DiscriminationGap:
-    """Oracle-minus-fitted AUC on the same evaluation population."""
+    """Difference in AUC between the generating model and a fitted model on the same outcomes.
+
+    Attributes:
+        oracle_auc: AUC of the known generating model's risk scores.
+        fitted_auc: AUC of the fitted model's risk scores.
+        gap: Generating-model AUC minus fitted-model AUC. Negative values are possible.
+    """
 
     oracle_auc: float
     fitted_auc: float
@@ -392,12 +434,18 @@ class DiscriminationGap:
 def discrimination_gap(
     oracle_risk: ArrayLike, fitted_risk: ArrayLike, *, metric: Callable[[ArrayLike], float]
 ) -> DiscriminationGap:
-    """Compare oracle and fitted scores using one fixed discrimination metric such as AUC.
+    """Compare the AUC of the generating score with the AUC of a fitted model on the same rows.
 
-    Bind shared labels, horizon, censoring reference and sample in metric, e.g.
-    a closure over cumulative_dynamic_auc or sklearn.metrics.roc_auc_score.
-    The gap is oracle minus fitted; a finite sample may give a negative gap.
-    No refitting or optimisation is performed.
+    The same AUC function is applied to both sets of risk scores. Returns both AUCs and the
+    generating score's AUC minus the fitted model's.
+
+    Args:
+        oracle_risk: At least two finite scores from the generating model, in evaluation row order.
+        fitted_risk: Finite fitted-model scores in the same row order.
+        metric: Function mapping a score vector to AUC in [0, 1], with the outcomes fixed.
+            For survival, also fix the horizon and censoring reference.
+
+    A finite sample may give a negative gap.
     """
     oracle = np.asarray(oracle_risk, dtype=np.float64)
     fitted = np.asarray(fitted_risk, dtype=np.float64)

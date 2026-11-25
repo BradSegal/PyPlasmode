@@ -80,6 +80,7 @@ def test_edgeless_target_has_node_recovery_and_unavailable_edge_recovery() -> No
     )
     assert result.at_depth[-1].node_coverage == 1
     assert all(row.edge_coverage is None and row.target_edge_count == 0 for row in result.at_depth)
+    assert all(row.weighted_edge_coverage is None for row in result.at_depth)
 
 
 def test_unsigned_decreases_preserve_effect_sign() -> None:

@@ -20,6 +20,8 @@ from sklearn.pipeline import Pipeline
         "evaluation",
         "metrics",
         "calibration",
+        "truths",
+        "methods",
     ],
 )
 def test_documented_workflow(page: str) -> None:
@@ -27,7 +29,7 @@ def test_documented_workflow(page: str) -> None:
     root = Path(__file__).parents[2]
     source = root / "README.md" if page == "README" else root / "docs" / f"{page}.md"
     namespace: dict[str, object] = {}
-    blocks = re.findall(r"```python\n(.*?)```", source.read_text(), re.DOTALL)
+    blocks = re.findall(r"```python\n(.*?)```", source.read_text(encoding="utf-8"), re.DOTALL)
     assert blocks
     for block in blocks:
         exec(compile(block, str(source), "exec"), namespace)
@@ -43,5 +45,7 @@ def test_documented_workflow(page: str) -> None:
         assert namespace["alignment"].unmapped == ("G",)
     elif page == "evaluation":
         assert namespace["result"].at_depth[0].recall == 0.5
+        assert namespace["region_result"].at_depth[0].node_coverage == 0.5
+        assert namespace["region_result"].at_depth[0].weighted_edge_coverage == pytest.approx(0.6)
     elif page == "README":
         assert namespace["recovery"].at_depth[0].recall == 1.0

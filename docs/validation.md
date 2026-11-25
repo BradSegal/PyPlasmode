@@ -1,90 +1,96 @@
 # Validation
 
-The validation example checks outcome calibration, effect estimation and feature recovery
-using synthetic data and known generating values. Install the optional estimators from
-[PyPI](https://pypi.org/project/pyplasmode/), download
-the [validation script](https://github.com/BradSegal/PyPlasmode/blob/main/examples/validation_vignette.py),
-and run it locally:
+A benchmark is only as trustworthy as its simulator. If the outcomes did not follow the settings you
+asked for, or recovery were scored wrongly, every comparison built on them would mislead. The
+validation example checks both on synthetic data where the right answers are known. To run it,
+install the optional estimators from [PyPI](https://pypi.org/project/pyplasmode/), download the
+[validation
+script](https://github.com/BradSegal/PyPlasmode/blob/main/examples/validation_vignette.py) and run
+it:
 
 ```bash
 python -m pip install "pyplasmode[validation]"
 python validation_vignette.py --output validation-output
 ```
 
-The output includes CSV summaries, a PDF/SVG figure and a JSON description of the simulation
-design following ADEMP (aims, data-generating mechanisms, estimands, methods and performance
-measures), the framework described by [Morris et al.](references.md#simulation-studies).
+It writes to `validation-output` CSV summaries, the figure below as PDF, SVG and PNG, and a JSON
+report of the simulation design and its results, which it also prints. The JSON follows ADEMP (aims,
+data-generating mechanisms, estimands, methods and performance measures), the reporting framework
+for simulation studies described by [Morris et al.](references.md#simulation-studies).
 
 ## Reference run
 
-The reference run separates three possible failure modes: generating the wrong outcome, scoring
-a ranking incorrectly, and finding apparent structure when no signal is present.
+The run targets three ways a simulator can fail: generating the wrong outcome, scoring a
+ranking wrongly, and finding apparent signal where there is none.
 
-1. **Create a population.** Generate 20,000 rows and 100 independent Gaussian features.
-   These exchangeable features provide a simple reference in which no feature has an
-   intrinsic selection advantage.
-2. **Add a known effect.** Standardise one feature and generate binary, continuous, count,
-   ordinal and survival outcomes from it. The requested effects are known before fitting.
-3. **Recover the effect with another implementation.** Fit statsmodels binomial, linear,
-   Poisson, ordered-logistic and Cox models. Compare their fitted coefficients and 95%
-   intervals with the values supplied to PyPlasmode.
-4. **Repeat outcome generation.** Use 40 random seeds per family and compare realised
-   outcomes with the requested probabilities, rates and other native-unit targets.
-5. **Check the recovery arithmetic.** Put the generating features first in a ranking, then
-   compare with 1,000 random rankings. Perfect ordering should recover all generating
-   features; random top-10 selections from 100 features should recover 10% on average.
-6. **Remove the association.** Across 400 simulations, set the odds ratio to one and rank
-   features by their association with the random outcome. Each feature should appear in
-   the top ten about 40 times. This tests selection recurrence under an exchangeable null.
+1. **Create a population** of 20,000 rows and 100 independent Gaussian features. Because the
+   features are independent and identically distributed, none has an advantage in being
+   selected when the outcome is unrelated to them (step 6).
+2. **Add a known effect.** One feature, standardised, generates a binary, a continuous, a
+   count, an ordinal and a survival outcome, each with a stated effect size.
+3. **Recover the effect with another implementation.** statsmodels fits a binomial, linear,
+   Poisson, ordered-logistic and Cox model to the respective outcome. If PyPlasmode generates
+   outcomes correctly, each fitted coefficient's 95% interval should contain the effect it was
+   given, as it will in 95% of datasets.
+4. **Repeat outcome generation** with 40 random seeds per outcome family, and compare the
+   realised outcomes with the requested probabilities, rates and other targets in the outcome's
+   own units.
+5. **Check the recovery arithmetic.** Five features generate the signal. A ranking that puts
+   them first should have a top-ten recovery of 1. A random selection of 10 of the 100
+   should recover 0.1 of the generating features on average. The run draws 1,000 random rankings.
+6. **Remove the association.** In 400 simulations, set the odds ratio to one, so the binary
+   outcome is unrelated to every feature, and rank the features by their association with it.
+   Each feature should then reach the top ten in 400 × 10/100 = 40 simulations on average,
+   and no feature should stand out.
 
 ![Effect estimates from independent implementations and feature-selection frequency under the null](assets/validation/validation.svg)
 
-Blue points and 95% intervals show the difference between the statsmodels estimate and
-the generating coefficient for each outcome family. Zero denotes exact agreement; ratios
-are compared on their log scale. Each fit uses one simulated dataset. The histogram shows
-per-feature top-10 recurrence across 400 null
-simulations with exchangeable features. Dashed lines mark the expected recurrence plus or
-minus three standard deviations.
+The points and 95% intervals show, for each outcome family, the statsmodels estimate minus the
+effect PyPlasmode was given, from one simulated dataset each. Zero means exact agreement.
+Ratio effects, such as odds ratios, are compared on the log scale. The histogram counts
+features by how far the number of no-association simulations that put them in the top ten lies
+from the expected 40, in standard deviations. The dashed lines at −3 and +3 correspond to
+counts of 22 and 58.
 
-A ranking that places the generating features first achieves recovery 1. Across 1,000
-random rankings, mean top-10 recovery was 0.1018, close to the expected 0.1 (Monte Carlo SE
-0.00416). All five fitted effect intervals contained the generating coefficient. Forty
-calibration replicates per outcome family completed without diagnostic failures.
+The results:
 
-Download the [effect estimates](assets/validation/external-conformance.csv),
-[native-unit calibration](assets/validation/outcome-reproducibility.csv),
+- All five fitted intervals contained the effect PyPlasmode was given.
+- All 40 replicates in each outcome family came within tolerance of their targets.
+- The ranking with the generating features first had recovery 1. The 1,000 random rankings
+  averaged 0.1018 against the expected 0.1, with a Monte Carlo standard error of 0.0042.
+- Without an association, each feature reached the top ten between 23 and 54 times, all within
+  three standard deviations of the expected 40.
+
+Tables: [effect estimates](assets/validation/external-conformance.csv),
+[outcome targets in native units](assets/validation/outcome-reproducibility.csv),
 [ranking controls](assets/validation/truth-recovery.csv) and
-[null recurrence](assets/validation/null-control.csv). The example script contains the
-sample sizes, data-generating mechanisms and seeds used to generate them.
+[no-association counts](assets/validation/null-control.csv). The script holds the sample sizes
+and seeds that produced them.
 
 ## Test suite
 
-Unit tests cover input handling and numerical calculations. Statistical tests check
-distributional properties and chance expectations. Integration tests combine sampling,
-generation, and evaluation across outcome families, including null signals and missing data.
+The reference run checks one configuration. The test suite checks individual functions and
+their boundary cases so regressions can be caught before release. It checks generated effects
+against statsmodels Logit and PHReg, checks random recovery against hypergeometric
+expectations and runs the full workflow for each outcome family, including null signals and
+missing data. The
+[test suite](https://github.com/BradSegal/PyPlasmode/tree/main/tests) lists the references and
+edge cases.
 
-| Component | Reference calculation | Additional cases |
-| --- | --- | --- |
-| Complete-row sampling | Source-row identity and empirical covariance | Replacement limits and separation of source rows |
-| Signal construction | Linear algebra for sparse, correlated and distributed signals | Missing or constant features and invalid specifications |
-| Binary and survival effects | statsmodels Logit and PHReg | Infeasible probabilities and invalid cumulative risks |
-| Continuous, ordinal and count effects | Marginal moments and category probabilities | Null signals, categories and varying exposures |
-| NB1 dispersion | SciPy negative-binomial moments | Conditional residual variance with heterogeneous means |
-| Exact recovery | Hand counts and SciPy hypergeometric expectations | Agreement between rankings and tied-score selections |
-| Fractional group and interaction recovery | Combinatorial and sampled references | Ties, zero scores and invariant references |
-| Stability and reconstruction | Prefix-overlap formula and standard regression | Small samples and constant targets |
+Two additional sets of tests cover recovery above chance. Matched recovery tests compare the
+analytic chance expectation with hypergeometric and sampled references. Outcome specificity
+tests score a selection against the signal the method was fitted to and against other signals on
+different features. This checks whether the selection recovers its own signal better than
+signals the method did not encounter during fitting.
 
-Matched recovery tests compare analytic expectations to hypergeometric and sampled references.
-Outcome specificity tests compare a selection against different, disjoint signals.
+The `pyplasmode.metrics` tests compare tied selections, censored AUC, and paired comparisons to
+known results.
 
-`pyplasmode.metrics` tests include exact enumeration of boundary ties, chance-level selection
-stability and rank overlap under exchangeable rankings, consensus from noisy refits, weighted
-pair AUC calculations, recovery of uncensored discrimination under independent censoring, shared
-bootstrap intervals, and the discrimination gap. Target AUC calibration tests cover 12 binary
-and 36 survival settings, with sample sizes and tolerances listed in the
-[calibration guide](calibration.md). The executable
-[metrics and calibration example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/metrics_calibration.py)
-combines these functions on synthetic scores.
+Target AUC calibration is tested in 12 binary and 36 survival settings; the [calibration
+guide](calibration.md) lists their sample sizes and tolerances. The [metrics and calibration
+example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/metrics_calibration.py) runs
+these functions together on synthetic scores.
 
-Run the tests with `pytest` after following the
-[development setup](https://github.com/BradSegal/PyPlasmode/blob/main/CONTRIBUTING.md).
+To run the tests yourself, follow the
+[development setup](https://github.com/BradSegal/PyPlasmode/blob/main/CONTRIBUTING.md) and run
+`pytest`.

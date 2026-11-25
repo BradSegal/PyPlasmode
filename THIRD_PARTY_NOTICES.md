@@ -5,5 +5,5 @@ the PyPlasmode source distribution or wheel and remain subject to their own lice
 installed versions can be recorded with `python -m pip freeze`. The source distribution
 declares supported ranges rather than shipping an experiment-specific lock file.
 
-The BSD 3-Clause License for PyPlasmode does not relicense empirical input data, generated
-row-level plasmodes or third-party software.
+The BSD 3-Clause License for PyPlasmode does not relicense empirical input data,
+datasets generated from it or third-party software.
