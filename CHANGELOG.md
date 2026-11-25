@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.1 — 2026-11-24
+## 1.2.1 — 2026-11-25
 
 A documentation release. The library computes the same results as 1.2.0: no executable code
 in the package changed apart from the version string.
