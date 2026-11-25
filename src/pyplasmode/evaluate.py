@@ -190,8 +190,11 @@ def evaluate_graph_region(
     """Measure how much of a set of graph nodes the top features of a ranking contain.
 
     At each depth, node coverage is the fraction of region nodes selected. Edge coverage is the
-    fraction of edges joining two region nodes with both ends selected; edges count equally, and
-    it is `None` if the region has no such edges.
+    fraction of edges joining two region nodes with both ends selected, counting every edge
+    equally. Weighted edge coverage is the same fraction by edge weight: the summed weight of
+    those recovered edges divided by the summed weight of all such edges. Edge coverage is `None`
+    if the region has no such edges, and weighted edge coverage is also `None` if their weights
+    sum to zero.
 
     Args:
         ranking: Every node of `graph` once, most important first.
@@ -207,21 +210,24 @@ def evaluate_graph_region(
     if not region_set or not region_set <= set(graph.nodes):
         raise ValueError("graph region must be a non-empty subset of graph nodes")
     region_edges = {
-        frozenset((edge.source, edge.target))
+        frozenset((edge.source, edge.target)): edge.weight
         for edge in graph.edges
         if edge.source in region_set and edge.target in region_set
     }
+    total_weight = sum(region_edges.values())
     rows = []
     for depth in checked_depths:
         selected = set(ordered[:depth])
-        recovered_edges = sum(edge <= selected for edge in region_edges)
-        edge_coverage = recovered_edges / len(region_edges) if region_edges else None
+        recovered = [weight for edge, weight in region_edges.items() if edge <= selected]
+        edge_coverage = len(recovered) / len(region_edges) if region_edges else None
+        weighted_edge_coverage = sum(recovered) / total_weight if total_weight > 0.0 else None
         rows.append(
             GraphRegionAtDepth(
                 depth,
                 len(selected & region_set) / len(region_set),
                 edge_coverage,
                 len(region_edges),
+                weighted_edge_coverage,
             )
         )
     return GraphRegionEvaluation(tuple(rows))

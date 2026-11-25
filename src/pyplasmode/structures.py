@@ -85,7 +85,14 @@ class FeatureSets:
 
 @dataclass(frozen=True, slots=True)
 class FeatureEdge:
-    """An undirected feature connection with a finite, non-negative weight."""
+    """An undirected connection between two features.
+
+    Attributes:
+        source: One endpoint. Direction carries no meaning; an edge and its reverse are the same.
+        target: The other endpoint, different from `source`.
+        weight: Finite, non-negative strength of the connection (default 1.0), used by
+            `weighted_edge_coverage` in `evaluate_graph_region`.
+    """
 
     source: str
     target: str

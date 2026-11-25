@@ -108,6 +108,7 @@ def test_graph_region_and_latent_reconstruction_match_direct_fixtures() -> None:
 
     assert graph_result.at_depth[0].node_coverage == pytest.approx(2 / 3)
     assert graph_result.at_depth[0].edge_coverage == pytest.approx(1 / 2)
+    assert graph_result.at_depth[0].weighted_edge_coverage == pytest.approx(1 / 2)
     assert reconstruction.r_squared == pytest.approx(1.0)
 
 
@@ -204,3 +205,39 @@ def test_replicate_uncertainty_requires_replication_and_matches_t_reference() ->
     low, high = t.interval(0.95, len(values) - 1, loc=values.mean(), scale=sem(values))
     assert result.confidence_interval_low == pytest.approx(low)
     assert result.confidence_interval_high == pytest.approx(high)
+
+
+@pytest.mark.unit
+def test_weighted_edge_coverage_uses_edge_weights_within_the_region() -> None:
+    """Recovered weight over total weight, ignoring edges that leave the region."""
+    graph = FeatureGraph(
+        tuple("abcde"),
+        (
+            FeatureEdge("a", "b", weight=0.9),
+            FeatureEdge("b", "c", weight=0.3),
+            FeatureEdge("c", "d", weight=0.3),
+            FeatureEdge("d", "e", weight=5.0),
+        ),
+    )
+    result = evaluate_graph_region(
+        ("a", "b", "e", "c", "d"), graph, region=("a", "b", "c", "d"), depths=(2, 4, 5)
+    )
+
+    top_two, top_four, everything = result.at_depth
+    assert top_two.edge_coverage == pytest.approx(1 / 3)
+    assert top_two.weighted_edge_coverage == pytest.approx(0.9 / 1.5)
+    assert top_four.edge_coverage == pytest.approx(2 / 3)
+    assert top_four.weighted_edge_coverage == pytest.approx(1.2 / 1.5)
+    assert everything.edge_coverage == 1.0
+    assert everything.weighted_edge_coverage == pytest.approx(1.0)
+
+
+@pytest.mark.unit
+def test_weighted_edge_coverage_is_unavailable_without_positive_weight() -> None:
+    """Zero total weight leaves the unweighted fraction defined and the weighted one not."""
+    graph = FeatureGraph(("a", "b", "c"), (FeatureEdge("a", "b", weight=0.0),))
+    row = evaluate_graph_region(("a", "b", "c"), graph, region=("a", "b"), depths=(2,)).at_depth[0]
+
+    assert row.edge_coverage == 1.0
+    assert row.target_edge_count == 1
+    assert row.weighted_edge_coverage is None

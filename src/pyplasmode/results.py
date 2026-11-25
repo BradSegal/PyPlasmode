@@ -106,15 +106,20 @@ class GraphRegionAtDepth:
     Attributes:
         depth: Number of leading features counted as selected.
         node_coverage: Fraction of the region's nodes that are selected.
-        edge_coverage: Fraction of the region's edges with both ends selected, or `None`
-            when the region has no edges.
+        edge_coverage: Fraction of the region's edges with both ends selected, counting every
+            edge equally, or `None` when the region has no edges.
         target_edge_count: Number of edges joining two nodes of the region.
+        weighted_edge_coverage: Summed weight of the region's edges with both ends selected,
+            divided by the summed weight of all the region's edges. `None` when the region has
+            no edges or their weights sum to zero. Equal to `edge_coverage` when every edge has
+            the same positive weight.
     """
 
     depth: int
     node_coverage: float
     edge_coverage: float | None
     target_edge_count: int = 0
+    weighted_edge_coverage: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
