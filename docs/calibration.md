@@ -32,7 +32,7 @@ print(round(binary.calibration.oracle_auc, 3), round(odds_ratio, 2))  # 0.7 2.15
 
 `generate_outcome` draws an outcome from a score you supply, here 20,000 standard normal values,
 without sampling rows. An odds ratio of 2.15 gives this score an expected AUC of the true risks
-(`oracle_auc`, which the API calls the *oracle* AUC) of 0.7 at a 10% event probability.
+(`oracle_auc`, or *oracle* AUC) of 0.7 at a 10% event probability.
 
 For a time-to-event outcome the AUC is measured at one time, `auc_horizon`: cases have an event by
 then, and controls are still event-free after it. The horizon must be strictly before the end of
@@ -46,9 +46,10 @@ before that, or to half the end of follow-up if there is none. With a single ten
 | Defaults | 10 years | 5 years |
 | `administrative_horizon=ppm.years(11)` | 11 years | 10 years |
 
-To calibrate the AUC at ten years, set the later end of follow-up: people still event-free at ten
-years are then followed to eleven and serve as controls. No events occur after year ten, because
-the event rate is zero after the last risk time; add a later, higher risk only if you want them.
+To calibrate the AUC at ten years, set follow-up to end at eleven years. People who are
+event-free and still under follow-up at ten years are then followed to eleven and serve as
+controls. No events occur after year ten because the event rate is zero after the last risk
+time. To allow later events, add a later risk time with a higher risk.
 
 ```python
 print(ppm.TimeToEventOutcome({ppm.years(10): 0.005}, target_auc=0.72).auc_horizon.days)  # 1826.25
@@ -72,9 +73,9 @@ The target and the solved hazard ratio use event risk before censoring, so the 5
 not change them. It does reduce the number of observed events, which makes an AUC measured on the
 drawn data less precise.
 
-In one finite dataset, a fitted model's AUC can come out above or below the AUC of the generating
-score on the same rows, because both are estimates with sampling error. This is chance, not a sign
-that the model beats the true risks.
+In one finite dataset, a fitted model's AUC can be above or below the AUC of the generating
+score on the same rows, because both are estimates with sampling error. This is chance, not a
+sign that the model beats the true risks.
 
 ## What is solved
 

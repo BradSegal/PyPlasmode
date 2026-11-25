@@ -30,13 +30,13 @@ PyPlasmode's evaluators.
 
 ## Correlation and missingness
 
-Feature selection is hard on real data because measurements are correlated: a model can pick
-a correlate of a generating feature in place of the feature itself. Missing values also follow
+Feature selection is hard on real data because measurements are correlated. A model can pick a
+correlate of a generating feature instead of the feature itself. Missing values also follow
 patterns that depend on other measurements. Each sampled row is a whole source row, so a sample
 keeps the combinations of values and missing entries that occur in your data, and the method you
-test faces the problem it would face on the real measurements. Which rows are drawn, and how
-often, varies between draws, so a sample's correlations and missingness rates differ somewhat
-from the source's.
+test faces the problem it would face on the real measurements. Which rows are drawn and how
+often they are drawn can vary between draws, so a sample's correlations and missingness rates
+can differ a bit from the source's.
 
 ## Training, validation and test samples
 
@@ -87,8 +87,9 @@ Use the second to link sampled rows to your own records; training and validation
 two fields.
 
 - **Split by person or cluster when one contributes several rows.** `partition_population` splits
-  individual rows, and rows of one person resemble each other and leak between pools as copies
-  do. Build the `PopulationPartition` from your own row indices.
+  individual rows, so related rows from the same person or cluster can end up in different
+  pools, much as copies of a row can when you split after resampling. Build the
+  `PopulationPartition` from your own row indices.
 - **Fit your model's preprocessing on the training sample only**, as on real data; the pooled
   scaling of step 4 belongs to the simulation.
 - **Targets hold on the combined rows.** With `probability=0.15`, event probabilities average 15%
@@ -96,7 +97,7 @@ two fields.
 - **The test rows are part of the generating model**: drawing different test rows can change the
   training rows' generating scores and outcome probabilities.
 - **A randomly drawn sentinel that is constant or entirely missing in the training pool** raises
-  `ValueError`, because it cannot carry a signal.
+  `ValueError` because the feature cannot be standardised.
 
 To compare a method across populations, such as two cohorts, call `generate` once per population
 with the same effect. Each call standardises the score and calibrates the baseline on its own
@@ -121,13 +122,14 @@ structure. For the built-in signals PyPlasmode:
    odds ratio of 2 doubles the odds of the event for each one-standard-deviation increase in the
    score. A null score stays zero.
 
-Because step 4 rescales the score, only the ratio of the weights matters: weights (4, −2) give the
-same score as (2, −1). A generating feature you name that is constant or entirely missing raises
-`ValueError`, because it cannot be standardised; automatic sparse selection skips such features.
+Because step 4 rescales the score, multiplying all weights by the same positive factor leaves
+the score unchanged. Weights (4, −2) give the same score as (2, −1). If you name a generating
+feature that is constant or entirely missing, generation raises `ValueError` because the feature
+cannot be standardised. Automatic sparse selection skips such features.
 
-In the table, a *sentinel* is the one generating feature taken from a group of correlated
-features, and a *module* is a named `FeatureSet` whose members all contribute
-([Generating signals](truths.md) explains when to choose each).
+In the table, a *sentinel* is the single generating feature chosen from a group of correlated
+features, and a *module* is a named `FeatureSet` whose members all contribute ([Generating
+signals](truths.md) explains when to choose each).
 
 | Signal structure | How to construct the score | What it tests |
 | --- | --- | --- |
@@ -148,7 +150,7 @@ limit or name the features yourself.
 
 ## Numerical calibration and random variation
 
-Two checks answer the question "does this dataset represent the scenario you specified?".
+Two checks answer the question "Does this dataset represent the scenario you specified?"
 
 1. **Before drawing**, calibration sets the model's intercept or baseline so that the *expected*
    outcome over the sampled rows equals your target, to numerical precision. If the model
@@ -161,9 +163,9 @@ Two checks answer the question "does this dataset represent the scenario you spe
    `RealizationError` if they differ by more than about six standard errors.
 
 With `probability=0.15`, the rows' event probabilities average 15%, and one drawn dataset might
-contain 14.6% events. The expected value already equals the target, so a `RealizationError` means
-this one draw landed far from it by chance, which is rare, not that your specification or data are
-wrong. With `p` the target probability and `n` the number of rows, the tolerances are:
+contain 14.6% events. The expected value already equals the target. A `RealizationError` here
+means the event fraction in this draw fell outside the tolerance, which is rare under the
+specified model. With `p` the target probability and `n` the number of rows, the tolerances are:
 
 - **Probabilities** (the binary event fraction, each ordered category's fraction, and survival
   event and censoring risks at each specified time): the larger of `6*sqrt(p*(1-p)/n)` and `6/n`.
@@ -174,8 +176,8 @@ wrong. With `p` the target probability and `n` the number of rows, the tolerance
   deviation, with `sd` the target standard deviation.
 - **Counts**: six times the standard deviation of the total count, divided by total exposure.
 
-When you repeat a simulation, catch `RealizationError` and count the failures, because dropping
-failed draws silently makes a study look as though every draw succeeded.
+When you repeat a simulation, catch `RealizationError` and record the number of failures. If you
+drop failed draws without reporting them, the study looks as if every draw succeeded.
 
 ```python
 event_fractions = []
@@ -197,19 +199,21 @@ summary = ppm.summarize_replicates(event_fractions, failure_count=failure_count)
 print(summary.replicate_count, summary.failure_count)  # 3 0
 ```
 
-The loop draws three 12-row datasets with a null signal and a 50% event probability. With 12 rows
-the tolerance is 0.87, wider than any possible distance from 50%, so these draws cannot fail; the
-pattern is what matters. `summarize_replicates` reports the failure count next to the mean of the
-successful draws, so a reader of your results sees both.
+The loop draws three 12-row datasets with a null signal and a 50% event probability. With 12
+rows the tolerance is 0.87, which is wider than any possible distance from 50%, so these draws
+cannot fail the event fraction check. The loop shows how to report failures when they can occur.
+`summarize_replicates` reports the failure count alongside the mean of the successful draws, so
+a reader of your results sees both.
 
 ## Discrimination and repeated selections
 
-How far does one dataset's AUC land from `target_auc`? Setting `target_auc` on a binary or
-time-to-event outcome makes the expected AUC of the true risks, `outcome.calibration.oracle_auc`
-(the API calls it the *oracle* AUC), equal the target ([AUC calibration](calibration.md)). The AUC
-in one dataset differs from it by chance, most when events are few. Measure it by scoring the true
-risks against the drawn outcomes. The generating score ranks rows as the true risks do when the
-effect raises risk, as here; otherwise multiply it by `calibration["signal_coefficient"]`, which is
+How close is the AUC from one dataset to `target_auc`? For binary and time-to-event outcomes,
+calibration makes the expected AUC of the true risks, `outcome.calibration.oracle_auc`, equal
+the target. The API calls this the *oracle* AUC ([AUC calibration](calibration.md)). The AUC
+measured against the drawn outcomes can differ from that expectation, especially with few
+events. When the effect raises risk, as it does here, the generating score gives the same
+ranking as the true risks. If the effect lowers risk, multiply the generating score by the
+negative `calibration["signal_coefficient"]` before measuring AUC.
 then negative.
 
 ```python
@@ -229,11 +233,11 @@ for rows in (2_000, 200):
 # 200 18 0.75 0.799
 ```
 
-The smaller draw, with 18 events, lands further from the target. Compare a model's AUC with the
-realised AUC of the generating score in the same dataset, not with the target, because both share
-that dataset's luck.
+The smaller draw, with 18 events, is further from the target. Compare a model's AUC with the
+realised AUC of the generating score in the same dataset. Both AUCs are measured against the
+same drawn outcomes, whereas the target is an expected AUC.
 
 When you refit a model on resampled data, its selected features change from fit to fit.
 `selection_stability` measures how much the selections agree and `consensus_ranking` combines
-them into one ranking. For time-to-event outcomes, `cumulative_dynamic_auc` measures AUC while
-accounting for censoring. All three are in `pyplasmode.metrics` ([Metrics](metrics.md)).
+them into a single ranking. For time-to-event outcomes, `cumulative_dynamic_auc` measures AUC
+while accounting for censoring. All three are in `pyplasmode.metrics` ([Metrics](metrics.md)).

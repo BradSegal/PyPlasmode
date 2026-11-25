@@ -36,8 +36,8 @@ ranking wrongly, and finding apparent signal where there is none.
    realised outcomes with the requested probabilities, rates and other targets in the outcome's
    own units.
 5. **Check the recovery arithmetic.** Five features generate the signal. A ranking that puts
-   them first should have a top-ten recovery of 1. Random rankings should average 10 of 100, a
-   recovery of 0.1; the run draws 1,000 of them.
+   them first should have a top-ten recovery of 1. A random selection of 10 of the 100
+   should recover 0.1 of the generating features on average. The run draws 1,000 random rankings.
 6. **Remove the association.** In 400 simulations, set the odds ratio to one, so the binary
    outcome is unrelated to every feature, and rank the features by their association with it.
    Each feature should then reach the top ten in 400 × 10/100 = 40 simulations on average,
@@ -69,22 +69,22 @@ and seeds that produced them.
 
 ## Test suite
 
-The reference run checks one configuration. The test suite checks the parts of the library
-separately and at their edges, so that a change that breaks one is caught before release.
-Tests compare each calculation with an independent reference, such as statsmodels Logit and
-PHReg for generated effects and hypergeometric expectations for random recovery, and run the
-full workflow for each outcome family, including null signals and missing data. The
+The reference run checks one configuration. The test suite checks individual functions and
+their boundary cases so regressions can be caught before release. It checks generated effects
+against statsmodels Logit and PHReg, checks random recovery against hypergeometric
+expectations and runs the full workflow for each outcome family, including null signals and
+missing data. The
 [test suite](https://github.com/BradSegal/PyPlasmode/tree/main/tests) lists the references and
 edge cases.
 
-Two further sets of tests cover recovery above chance. Matched recovery tests compare the
+Two additional sets of tests cover recovery above chance. Matched recovery tests compare the
 analytic chance expectation with hypergeometric and sampled references. Outcome specificity
-tests score one selection against its own signal and against other signals on different
-features, the comparison that tests whether a selection recovers its own signal better than
-signals it was not fitted to.
+tests score a selection against the signal the method was fitted to and against other signals on
+different features. This checks whether the selection recovers its own signal better than
+signals the method did not encounter during fitting.
 
-The `pyplasmode.metrics` tests compare tied selections, censored AUC and paired comparisons
-with known results.
+The `pyplasmode.metrics` tests compare tied selections, censored AUC, and paired comparisons to
+known results.
 
 Target AUC calibration is tested in 12 binary and 36 survival settings; the [calibration
 guide](calibration.md) lists their sample sizes and tolerances. The [metrics and calibration

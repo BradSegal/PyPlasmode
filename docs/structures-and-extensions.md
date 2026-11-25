@@ -49,6 +49,5 @@ whose generating features are A and B. The alternative is to add a measurement o
 annotation; otherwise a measured feature appears as unmapped under its other name. A
 `FeatureGraph` has the same `align` method.
 
-For a signal structure that the built-in classes do not cover, write a function that computes
-the generating score and declares its recovery targets
-([Custom signal](truths.md#custom-signal)).
+For a signal structure not covered by the built-in classes, write a function that computes the
+generating score and declares its recovery targets ([Custom signal](truths.md#custom-signal)).

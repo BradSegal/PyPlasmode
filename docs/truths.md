@@ -8,23 +8,24 @@ outcome and in what structure. From it PyPlasmode computes the *generating score
 
 ![Five signal structures and their corresponding recovery targets](assets/concepts/signal-recovery.png)
 
-In the diagram, "drivers" are generating features and "latent disease state" is the generating
-score. The [tutorial](tutorial.md) compares sparse and correlated signals on the same measurements.
+In the diagram, the "drivers" are the generating features, and the "latent disease state" is the
+generating score. The [tutorial](tutorial.md) compares sparse and correlated signals on the same
+measurements.
 
 ## Null
 
-A null signal asks: how often does a procedure report features when there is nothing to find?
+A null signal asks how often a procedure reports features when there is nothing to find.
 
-Write `NullTruth()`. The generating score is zero on every row, so no feature affects the outcome
-and every selected feature is a false selection. Recovery cannot be computed, because there are no
-generating features. Count instead how many features are selected, and how often the same ones
-recur across repeated datasets: recurrence shows which features the procedure tends to pick when
-there is nothing to find.
+Write `NullTruth()`. The generating score is zero on every row, so no feature affects the
+outcome, and any feature selected is a false selection. Recovery cannot be computed since there
+are no generating features, so count instead how many features are selected and how often the
+same features recur across repeated datasets. Recurrence shows which features the procedure
+tends to pick when there is nothing to find.
 
 ## Sparse
 
-A sparse signal asks: does a method find the few individual features that generate the outcome,
-rather than their correlates?
+A sparse signal tests whether a method finds the few individual generating features themselves
+when their correlates could also be selected.
 
 Write `SparseTruth(features=...)` to name the generating features, with optional non-zero
 `weights` (default 1.0 each), or `SparseTruth(count=...)` to let PyPlasmode choose that many, no
@@ -61,8 +62,8 @@ exceeds the limit.
 
 ## Correlated
 
-A correlated signal asks: does a method find a generating feature, or settle for one of its
-*correlates*, measured features strongly correlated with it?
+A correlated signal asks if a method finds a generating feature or settles for one of its
+*correlates*, measured features strongly correlated with it.
 
 Put each generating feature and its correlates in a named `FeatureSet`, pass them as
 `feature_sets` to `generate`, and write `CorrelatedTruth(group_names=...)`, with one weight per
@@ -104,14 +105,14 @@ ranking puts A_proxy first, so at depth 1:
 | `evaluate_groups` | any member | 1.0 |
 | `evaluate_ranking` | the sentinel itself | 0.0 |
 
-Reporting both shows how often a method finds the right group but the wrong member. Under group
-means there is no sentinel; use `evaluate_groups`, or `evaluate_module` for the share of generating
-weight the selection covers.
+Reporting both shows how often a method finds the right group but the wrong member. The
+group-means form has no sentinel. Use `evaluate_groups` for group recovery or `evaluate_module`
+for the share of generating weight the selection covers.
 
 ## Distributed
 
-A distributed signal asks: how much of a signal does a selection capture when many features each
-carry part of it, as the members of a biological pathway might?
+A distributed signal lets you ask how much of a signal a selection captures when many features
+each carry part of it, as the members of a biological pathway might.
 
 Write `ModuleTruth(set_name=...)` and pass the named feature set in `feature_sets` to `generate`.
 The score adds the standardised values of every member, each multiplied by its weight (default
@@ -134,9 +135,9 @@ coverage = ppm.evaluate_module(ranking, module_sample.truth, depths=(2,))
 print(coverage.at_depth[0].weighted_coverage)  # 0.5
 ```
 
-The weights give A twice the weight of B or C, and make the score fall as B rises; B's −1 counts as
-1 for coverage. The top two features are A_proxy and A, and A carries 2 of the 4 units of weight,
-so coverage is 0.5.
+The weights give A twice the weight of B or C and make the score fall as B rises. Coverage uses
+absolute weights, so B's −1 counts as 1. The top two features are A_proxy and A. A carries 2 of
+the 4 units of weight, so coverage is 0.5.
 
 Coverage gives A_proxy no credit, although it carries much of A's information. To measure how well
 the selected features predict the generating score on held-out rows, whichever features they are,
@@ -145,10 +146,10 @@ raises `ValueError` for this signal, because it has no individual generating fea
 
 ## Interaction
 
-An interaction signal asks: does a method detect features that matter only in combination, such
-as a risk that rises only when two measurements are both high? With the product form, each feature
-on its own can show no association with the outcome, so a method that judges features one at a
-time can miss both.
+Can a method detect features that matter only in combination, as when risk rises only if two
+measurements are both high? An interaction signal lets you test this. With the product form,
+each feature on its own can show no association with the outcome. A method that judges features
+one at a time can therefore miss both.
 
 Write `InteractionTruth(features=("A", "B"))` and choose the `operation`:
 
@@ -177,9 +178,9 @@ B and C (the API calls a selection a *nomination*). A is selected, and B and C t
 place, so each is selected with probability 0.5. Only one of the two ways of breaking the tie
 completes the pair, so recovery is 0.5.
 
-A threshold that every row or no row clears on both features makes the score constant, and
-generation raises `ValueError`, because a constant score cannot be standardised. Lower the
-threshold if no row clears it; raise it if every row does.
+A threshold that every row or no row clears on both features makes the score constant.
+Generation raises `ValueError`, because a constant score cannot be standardised. Lower the
+threshold if no row clears it. Raise it if every row does.
 
 ## Custom signal
 

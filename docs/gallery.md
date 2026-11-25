@@ -35,9 +35,9 @@ contours show the score after standardisation:
 
 ## Finding a feature or finding its group
 
-When the generating feature has strong correlates (features correlated with it), a model can
-rank a correlate first and
-predict almost as well. Whether that counts as a success decides which recovery you measure.
+When the generating feature has strong correlates (features correlated with it), a model may
+rank a correlate first and predict almost as well. Which recovery measure you use depends on
+whether you count selecting a correlate as a success.
 
 ![A correlation matrix beside exact-feature and group-recovery curves for two example rankings](assets/patterns/correlated-recovery.svg)
 

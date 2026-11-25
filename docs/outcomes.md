@@ -1,14 +1,14 @@
 # Outcomes in observable units
 
-An outcome specification answers the question "what should the outcome look like, and how strongly
-does the generating score act on it?". So that it looks like the outcome in your setting, you
-describe it in observable units, such as a 15% event rate or a 10% risk at five years, and
-PyPlasmode solves for the model parameters, such as an intercept, that produce them.
+An outcome specification answers the question "What should the outcome look like, and how
+strongly should the generating score act on it?" To match the outcome in your setting, describe
+it in observable units, such as a 15% event rate or a 10% risk at five years. PyPlasmode solves
+for the model parameters, such as an intercept, that produce the requested values.
 
 Each class takes targets for the outcome's level and one effect, per standard deviation of the
 generating score (the number computed for each row from the generating features); a target AUC
-can replace the effect for binary and time-to-event outcomes. The solved parameters are stored in
-`outcome.calibration`.
+can be provided instead of the effect for binary and time-to-event outcomes. The solved
+parameters are stored in `outcome.calibration`.
 
 ## Shared example population
 
@@ -46,9 +46,9 @@ probability averaged over rows, and one effect on the scale your field reports:
 - `target_auc` sets how well the score separates cases from controls, and PyPlasmode solves for
   the odds ratio ([AUC calibration](calibration.md)).
 
-A risk ratio or risk difference can push the probability of the highest- or lowest-scoring rows
-outside 0 to 1, and generation then raises `CalibrationError`; use a smaller effect or an odds
-ratio, which keeps every probability in range.
+A risk ratio or risk difference may push the probability of the highest- or lowest-scoring rows
+outside 0 to 1. Generation then raises `CalibrationError`. Use a smaller effect or an odds
+ratio, which keeps all probabilities in range.
 
 ```python
 binary = simulate(ppm.BinaryOutcome(probability=0.15, odds_ratio=2.0))
@@ -58,7 +58,7 @@ print(round(binary.calibration["intercept"], 2))
 # -1.89
 ```
 
-The event fraction, 0.152, is close to the 15% target; the intercept is the log-odds value that
+The event fraction, 0.152, is close to the 15% target. The intercept is the log-odds value that
 makes the row probabilities average 15%.
 
 ## Continuous
@@ -71,8 +71,8 @@ outcome's variance due to the score. With `standard_deviation=15`, `effect=5` an
 
 - **`effect` must be smaller than `standard_deviation` in size**, to leave variance for the
   Gaussian noise that supplies the rest.
-- **`variance_explained` is at least 0 and below 1, and gives a positive effect**; use `effect`
-  for a negative one.
+- **`variance_explained` is at least 0 and below 1, and gives an effect of zero or more**; use
+  `effect` for a negative one.
 - **With a null signal the effect must be 0**, because a constant score cannot explain any
   variance; any other value raises `OutcomeSpecificationError`.
 - **At least two rows are needed**, because a standard deviation cannot be checked on one.
@@ -83,7 +83,7 @@ print(round(float(continuous.values.mean()), 2), round(float(continuous.values.s
 # 99.92 14.83
 ```
 
-The sample's mean and standard deviation are close to their targets of 100 and 15.
+The sample mean and standard deviation are close to the targets of 100 and 15.
 
 ## Counts
 
@@ -115,11 +115,11 @@ varying_counts = ppm.generate_outcome(count_spec, np.array([-1.0, 1.0]), np.rand
 print(varying_counts.exposure, varying_counts.values)  # [1. 2.] [3 5]
 ```
 
-The first draw's mean is close to the target of 3. Its variance is more than twice the mean,
-because `variance_to_mean` applies among rows with the same score, and the score also makes
-expected counts differ between rows. The second draw uses `generate_outcome`, which draws from a
-score you supply without sampling rows: two rows with scores −1 and 1 and exposures of one and two
-years.
+The first draw's mean is close to the target of 3. The variance is more than twice the mean
+because `variance_to_mean` applies to counts at the same score and exposure, and the score also
+causes the expected counts to differ between rows. For the second draw, `generate_outcome` draws
+from a score you provide without sampling rows. Here you supply two rows with scores of −1 and 1
+and exposures of one and two years.
 
 ## Ordered categories
 
@@ -142,7 +142,8 @@ print(ordinal.categories, np.bincount(ordinal.codes) / len(ordinal.codes))
 # ('low', 'middle', 'high') [0.2524 0.4973 0.2503]
 ```
 
-The outcome stores the category names and an integer code per row, 0 for the lowest category.
+The outcome stores the category names and an integer code per row, with 0 being the lowest
+category.
 
 ## Time to event
 

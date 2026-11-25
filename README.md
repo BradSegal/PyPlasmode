@@ -2,17 +2,17 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24518248.svg)](https://doi.org/10.5281/zenodo.24518248)
 
-A model can predict an outcome well while ranking the wrong features first, and on real data you
-usually cannot tell, because the features that generated the outcome are unknown. PyPlasmode keeps
-your feature data and simulates the outcome from features you choose. You can then measure how well
-a model predicts the outcome and how many of the generating features it identifies.
+A model can predict an outcome well while ranking the wrong features first. In real data, you
+usually cannot tell because you do not know which features generated the outcome. PyPlasmode
+keeps your feature data and simulates the outcome from features you choose. You can then measure
+both how well a model predicts the outcome and how many of the generating features it finds.
 
-Measured features with a simulated outcome are called a *plasmode*. The features keep their
-real correlations, which is what makes selecting the right ones hard. The library was built for
-biomarker benchmarking and accepts any numeric matrix of observations and uniquely named
-features, with missing values as NaN. It
-does not fit models: you fit them with your own tools and hand back their predictions,
-rankings or selected panels.
+A dataset of measured features with a simulated outcome is called a *plasmode*. Sampling whole
+rows keeps the relationships between measured features, which is what makes finding the right
+ones hard. The library was made for biomarker benchmarking. It takes a non-empty numeric matrix
+with one observation per row and a unique name for each feature. Use NaN for missing values.
+Infinite values are rejected. It does not fit models. You fit them with your own tools and give
+back their predictions, rankings or selected panels.
 
 [![From observed measurements to simulated outcomes, model predictions and feature recovery](https://raw.githubusercontent.com/BradSegal/PyPlasmode/main/docs/assets/concepts/plasmode-workflow.png)](https://bradsegal.github.io/PyPlasmode/methods/)
 
@@ -88,11 +88,10 @@ generating score (the number computed for each row from the generating features)
 
 The model ranks features by the size of its coefficients. The first number is the recovery
 (`recall` in the API): the fraction of the three generating features in the model's top ten.
-The second is the AUC (area under the ROC curve) on the test sample. The example fits with
-fixed settings; to tune them, use the validation sample, so that the test sample still judges
-a model it has not shaped. One simulated
-dataset gives one draw of each result, so repeat with different seeds to estimate average
-performance and its uncertainty.
+The second is the AUC (area under the ROC curve) on the test sample. The example uses fixed
+settings. If you tune them, use the validation sample and reserve the test sample for scoring
+the tuned model. Repeat the simulation with different seeds to estimate average performance
+and its uncertainty.
 [Paired evaluation](https://bradsegal.github.io/PyPlasmode/evaluation/#paired-procedure-comparisons)
 compares two procedures across such repeats.
 

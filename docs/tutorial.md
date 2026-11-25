@@ -1,22 +1,21 @@
 # Benchmarking feature selection
 
-Suppose a model predicts an outcome well and ranks its features by importance. You want to
-know whether its top-ranked features generated the outcome, or are correlates: features
-correlated with the generating ones, which predict almost as well when the correlation is
-strong. On real data the generating features are usually unknown, so the question cannot be
-answered.
-PyPlasmode makes it answerable by keeping your measurements and simulating the outcome from
-features you choose.
+Imagine a model that predicts an outcome well and ranks features by importance. You want to know
+whether the model's top-ranked features generated the outcome or are correlates. Correlates are
+features correlated with the generating features and can predict almost as well if the
+correlation is strong. On real data, the generating features are usually unknown, so you cannot
+answer the question. PyPlasmode makes it answerable by keeping your measurements and simulating
+the outcome from features you pick.
 
-For your own study, replace the synthetic measurements below with a numeric matrix that has one
+For your own study, replace the synthetic measurements below with a numeric matrix with one
 observation per row and one uniquely named feature per column. Install
-[PyPlasmode](https://pypi.org/project/pyplasmode/), which brings NumPy and scikit-learn, and run
-the blocks in order, because each uses names defined by the ones before it.
+[PyPlasmode](https://pypi.org/project/pyplasmode/), which depends on NumPy and scikit-learn. Run
+the blocks in order because each block uses names defined by previous blocks.
 
 ## Create correlated measurements
 
-To show whether a model picks generating features or their correlates, the example matrix
-contains two correlated pairs.
+To demonstrate whether a model picks generating features or their correlates, the example matrix
+has two correlated pairs.
 
 ```python
 import numpy as np
@@ -41,9 +40,9 @@ for B, and C to F stay unrelated to everything. `Population` stores the matrix w
 column names. The seed 17, like every seed on this page, fixes the random draws so that you
 see the numbers shown here.
 
-A model may select A_proxy in place of A and lose little prediction. Whether that counts as finding
-the signal depends on your question, so you declare which features belong together: each
-`FeatureSet` names one group, and `FeatureSets` collects the groups. The signal below takes its
+A model may select A_proxy instead of A and lose little predictive power. Whether this counts as
+finding the signal depends on your question, so you declare which features belong together: each
+`FeatureSet` names a group, and `FeatureSets` collects the groups. The signal below takes its
 generating features from these groups, and recovery can then be scored by group as well as by
 feature.
 
@@ -67,8 +66,8 @@ it is absent or spelt differently.
 ## Generate an outcome from known features
 
 Now choose which features generate the outcome. Here they are A and B. Their correlates carry
-information about the outcome only through their correlation with A and B, which is what makes
-them a trap for a model's ranking.
+information about the outcome only through correlation with A and B, which is what makes them a
+trap for a model's ranking.
 
 ```python
 partition = ppm.partition_population(
@@ -88,14 +87,14 @@ print(train.truth.direct_features)
 # ('A', 'B')
 ```
 
-`partition_population` first splits the 4,000 rows into training, validation and test pools
-of 60%, 20% and 20%. Splitting before anything is simulated keeps every observation used to fit
-the model out of the rows used to judge it.
+`partition_population` first splits the 4,000 rows into training, validation and test pools of
+60%, 20% and 20%. Splitting before anything is simulated ensures that no observation used to fit
+the model is also used to judge it.
 
-`generate_partitioned` then draws a sample from each pool and simulates an outcome for every row,
-calibrating the three samples together. The sample sizes equal the pool sizes, and drawing without
-replacement uses each row once. Drawing with replacement instead lets you simulate a study larger
-than your data.
+`generate_partitioned` then draws a sample from each pool and simulates an outcome for every
+row, calibrating the three samples together. The sample sizes are the pool sizes, and drawing
+without replacement uses each row once. Drawing with replacement instead lets you simulate a
+study larger than your data.
 
 - `CorrelatedTruth` builds the signal from the groups. One member of each group generates the
   outcome; the API calls it the group's *sentinel*, here A and B. The *generating score* is
@@ -104,13 +103,13 @@ than your data.
 - `BinaryOutcome(probability=0.15, odds_ratio=2.0)` gives the outcome to 15% of rows on average
   across the three samples and doubles its odds for each standard deviation of the generating score.
 
-`train.truth` records what a model should find. Its `direct_features` are the features a
-selection should contain: A and B.
+`train.truth` records what a model should find. Its `direct_features` lists A and B, the
+generating features the selection should contain.
 
 ## Fit, tune and explain the model
 
 PyPlasmode does not fit models. You fit one with your own tools and hand back its predictions
-and its importance ranking. Here it is a cross-validated logistic regression.
+and importance ranking. Here it is a cross-validated logistic regression.
 
 ```python
 model = GridSearchCV(
@@ -159,9 +158,9 @@ generating features in the top two, here both. Precision is the fraction of the 
 are generating features, also 1.0. Group recovery counts a group as found when any of its
 members is selected.
 
-The three measures separate when a model prefers a correlate. A top two of A and B_proxy would
-have recovery and precision of 0.5, because only A generated the outcome, but group recovery
-of 1.0, because B_proxy stands in for B's group.
+The three measures can give different results when a model prefers a correlate. If its top two
+are A and B_proxy, exact recovery and precision are both 0.5 because only A generated the
+outcome. Group recovery is 1.0 because B_proxy counts as a member of B's group.
 
 ## Compare with matched chance
 
@@ -206,21 +205,22 @@ reference:
 | One stratum: any two of the eight features | 0.25 | 0.75 |
 | `paired` and `unpaired`: any two of the four paired features | 0.50 | 0.50 |
 
-Both selections were paired features, so the fair reference also picks two of the four paired
-features. There are six ways to do that. One finds both A and B (recovery 1.0), four find one
-of them (0.5) and one finds neither (0), which averages 0.5. The random list picks features,
-not pairs: A_proxy is a different feature from A, and this measure asks for A itself.
+Both selected features belonged to correlated pairs, so the matched reference also picks two of
+the four paired features. There are six ways to do that. One finds both A and B (recovery 1.0),
+four find one of them (0.5) and one finds neither (0), giving a mean recovery of 0.5. A_proxy
+and A are separate features. To recover A under this measure, the list must contain A itself.
 
-The one-stratum 0.75 credits the model for looking among correlated features at all. The
-matched 0.5 credits it only for telling A from A_proxy. Had the model selected A and B_proxy,
-recovery would be 0.5 and recovery above chance zero.
+With one stratum, recovery above chance is 0.75. This gives the model credit for selecting from
+the correlated pairs in the first place. With the matched reference it is 0.5, which gives
+credit for choosing A and B over their correlates. Had the model selected A and B_proxy,
+recovery would be 0.5 and recovery above chance would be zero under the matched reference.
 
 ## Matching strata on empirical measurements
 
-Here the strata were known, because the pairs were built by hand. Real measurements carry no
-such labels, so you need a rule that sorts features into strata. One rule is how strongly
-each feature correlates with any other: features with close correlates are the ones a model
-can swap for one another.
+Here the strata were known because the pairs were built by hand. Real measurements do not come
+with such labels, so you need a rule that sorts features into strata. One rule uses each
+feature's strongest absolute correlation with another feature, since a model may select a strong
+correlate in its place.
 
 ```python
 correlations = np.abs(np.corrcoef(population.X, rowvar=False))
@@ -241,14 +241,15 @@ print(empirical.chance_adjusted_recovery, empirical.admissible_panel_count)
 # 0.5 6
 ```
 
-The first three lines compute the absolute correlation between every pair of features,
-set each feature's correlation with itself to zero, and keep each feature's strongest
-correlation with another. `np.digitize` then sorts features into three strata: below 0.3,
-0.3 to 0.7, and 0.7 or above. The rule recovers the hand-made strata, so the result is the same.
+The first three lines compute the absolute correlation between all pairs of features, set each
+feature's correlation with itself to zero and keep its highest absolute correlation with another
+feature. `np.digitize` then splits the features into three strata. The first is below 0.3, the
+second is at least 0.3 and below 0.7, and the third is at least 0.7. This rule recovers the
+hand-made strata, so the result is the same.
 
-Another rule is the size of the correlated group a feature belongs to. When a group counts as
-recovered if any member is selected, a large group is easier to hit by luck, so features in
-groups of similar size are compared with each other.
+Another rule is the size of the correlated group a feature is in. When a group counts as
+recovered if any member is selected, random selection is more likely to include a member of a
+larger group. The reference therefore compares features in groups of similar size.
 
 Three rules for choosing strata:
 
@@ -260,20 +261,21 @@ Three rules for choosing strata:
   ways to choose two of four paired features. If it is 1, the only possible random list is
   the observed one, and recovery above chance is zero whatever the model did.
 
-`np.corrcoef` returns missing values for a column that is constant or contains missing
-values. Drop constant columns first, and compute correlations on complete rows or with
-pairwise deletion (for example `pandas.DataFrame.corr`).
+`np.corrcoef` returns missing values for a column that is constant or has missing values. Remove
+constant columns first, and compute correlations on complete rows or use pairwise deletion, for
+example with `pandas.DataFrame.corr`.
 
 ## Change the signal structure
 
-So far the outcome came from A and B alone, and only A and B counted as correct. An outcome
-may instead depend on what a group of correlated features measures in common, and then a
-model that selects A_proxy has found part of the signal. The signal structure decides both
-which features generate the outcome and what a selection has to contain to recover it.
+So far the outcome has been generated from A and B alone, and only A and B have counted towards
+exact recovery. The outcome may instead depend on the common quantity that a group of correlated
+features measures. In that case, a model that selects A_proxy has found part of the signal. The
+signal structure determines both which features generate the outcome and what a selection must
+contain to recover it.
 
-`materialize_truth` computes the generating score and the recovery targets from the
-measurements without simulating an outcome, which is enough to see what each structure asks
-of a selection. The example scores the model's top two, A and B, against two structures.
+`materialize_truth` computes the generating score and the recovery targets from the measurements
+without simulating an outcome, which is sufficient to see what each structure requires of a
+selection. The example scores the model's top two, A and B, against two structures.
 
 ```python
 sparse = ppm.materialize_truth(ppm.SparseTruth(features=("A", "B")), population, seed=3)
@@ -315,8 +317,8 @@ ordered categories and time-to-event data, see [Outcomes](outcomes.md).
 
 ## Choose discrimination and compare refits
 
-The comparison so far used one effect size, one fit and one dataset, so it cannot show whether
-the result holds beyond them. Each of these extends it:
+The comparison so far used one effect size, one fit and one dataset. To see whether the result
+holds, vary the prediction difficulty, compare refits or run the procedures on more datasets:
 
 - **Set difficulty as an AUC.** `BinaryOutcome(probability=0.15, target_auc=0.7)` solves for
   the odds ratio that gives the generating score an expected AUC of 0.7, so you choose how

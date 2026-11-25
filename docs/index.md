@@ -1,18 +1,19 @@
 # PyPlasmode
 
-A model can predict an outcome well while ranking the wrong features first. On real data you usually
-cannot tell, because the features that generated the outcome are unknown. PyPlasmode makes that
-known: you provide a numeric feature matrix, choose which of its features generate an outcome, and
-simulate the outcome. You can then measure how well a modelling procedure predicts the outcome and
-how many of the generating features its ranking puts first.
+A model can predict an outcome well while ranking the wrong features first. On real data, you
+usually cannot tell because the features that generated the outcome are unknown. With
+PyPlasmode, you provide a numeric feature matrix, choose which of its features generate an
+outcome and simulate the outcome. You can then measure how well a modelling procedure predicts
+the outcome and how many of the generating features it ranks first.
 
-Measured features combined with a simulated outcome are called a *plasmode*. Drawing whole
-rows of measured features keeps their correlations, which is what makes selecting the right
-features hard in practice, while the simulation lets you set the signal, its strength and how
-common the outcome is. The library was built for biomarker studies and accepts any numeric
-table of observations and uniquely named features, with missing values as NaN.
+A dataset of measured features combined with a simulated outcome is called a *plasmode*. Drawing
+whole rows preserves how measured features vary together, which is what makes it hard to select
+the right features in practice. The simulation allows you to set the signal, its strength and
+how common the outcome is. The library was built for biomarker studies. It accepts a non-empty
+numeric table of observations and uniquely named features. Use NaN for missing values. Infinite
+values are rejected.
 
-PyPlasmode does not fit models: you fit them with your own tools and pass back their
+PyPlasmode does not fit models. You fit them with your own tools and pass back their
 predictions, rankings or selected features.
 
 The [feature-selection tutorial](tutorial.md) is the place to start: it fits a model, ranks
@@ -62,15 +63,15 @@ outcome.
    Otherwise the same measured row could appear in both the rows a model is fitted on and the
    rows it is judged on.
 4. Generate a sample from each pool. Fit on the training sample and tune on the validation
-   sample, so that the test sample has shaped neither decision.
+   sample. Reserve the test sample for evaluation.
 5. Evaluate predictions on the test sample and [feature recovery](evaluation.md) from the
    rankings. Where importance scores tie, score the tied features together, so that an
    arbitrary order among them does not change recovery.
-6. Repeat with independent seeds. One simulated dataset gives one draw of each result; repeats
-   show how much it varies.
+6. Repeat with independent seeds to measure how much each result varies between simulated
+   datasets.
 
-To compare methods, run each on the same generated samples, so that differences between them
-come from the methods and not from the data. See [Methods](methods.md).
+To compare methods, run each on the same generated samples so that differences between them come
+from the methods and not from the data. See [Methods](methods.md).
 
 ## Return types
 
@@ -91,6 +92,6 @@ index: its zero-based row position in the matrix it was drawn from. In a `Plasmo
 original unsplit `Population` instead, use `training_source_indices`,
 `validation_source_indices` or `evaluation_source_indices`.
 
-Before using empirical measurements,
-read the [data handling guidance](privacy-and-limitations.md), because simulated datasets can
-reproduce individual records.
+Before using empirical measurements, read the
+[data handling guidance](privacy-and-limitations.md) because simulated datasets can reproduce
+individual records.

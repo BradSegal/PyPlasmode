@@ -1,16 +1,16 @@
 # Metrics
 
-The functions in `pyplasmode.metrics` answer three questions that come up once you have fitted
-models: whether repeated fits select the same features, how well risk scores separate people
-with and without an event when follow-up is censored, and whether one fitted model beats another
-on the same people. They fit nothing themselves. Array arguments are matched by position, so
-give features and rows in the same order in every argument; a misaligned array gives a wrong
-number, not an error.
+The functions in `pyplasmode.metrics` answer three questions that come up after model fitting.
+Do repeated fits select the same features? How well do risk scores separate people with and
+without an event when follow-up is censored? Is one fitted model better than another on the same
+people? They do not fit models themselves. Array arguments are matched by position, so give
+features and rows in the same order in all arguments. A misaligned array can pass validation and
+give a wrong result.
 
 ## Selection stability
 
 Selection stability answers one question: if you refit a selection method on resampled data,
-does it select the same features each time, more than chance would?
+will it select the same features each time, more than chance would?
 
 **How it is used.** Make one selection per refit with
 [`nomination_from_scores`](evaluation.md#rankings-and-scores), which shares a slot among tied
@@ -67,8 +67,8 @@ identical, yet it scores zero, as random selection should, because each tie is b
 
 ## Consensus and rank-biased overlap
 
-`consensus_ranking` answers one question: after several refits, which single ranking do you
-report? `rank_biased_overlap` answers the next: how much do two rankings agree?
+`consensus_ranking` answers one question: after several model refits, what single ranking do you
+report? `rank_biased_overlap` answers the next question: how much do two rankings agree?
 
 **How the consensus is built.** `consensus_ranking(feature_ids, scores, depth=...)` takes one row
 of importance scores per refit. It then:
@@ -133,7 +133,7 @@ Censored discrimination answers one question: for a time-to-event outcome, do th
 separate people who have an event by a chosen time, the `horizon`, from people who do not?
 
 **Why it is needed.** People who leave follow-up before the horizon without an event are
-*censored*: whether they would have had one is unknown. Leaving them out biases the result,
+*censored*: it is unknown if they would have had one. Leaving them out biases the result,
 because they include people who would have had a late event, so cases with late event times are
 under-represented.
 
@@ -174,7 +174,7 @@ held-out rows. At horizon 3:
 | 3 | 4 | yes | 0.1 | control: event after 3 |
 | 4 | 5 | no | 0.0 | control |
 
-The case's 0.9 is above both controls' risks, so AUC is 1.
+The case's 0.9 is above both controls' risks, so the AUC is 1.
 
 - **Choose a horizon the AUC can be estimated at**, or the call raises `ValueError`: below the
   longest training follow-up, because `G` cannot be estimated beyond it; before the last
@@ -195,17 +195,17 @@ The case's 0.9 is above both controls' risks, so AUC is 1.
 
 ## Paired bootstrap and discrimination gap
 
-`paired_bootstrap_difference` answers one question: would the difference between two fitted
-models' scores on the same people hold in another sample of people? `discrimination_gap`
-answers another: how much discrimination does a fitted model leave unrealised?
+Would the difference between two fitted models' scores on the same people hold in another sample
+of people? `paired_bootstrap_difference` estimates the uncertainty in that difference.
+`discrimination_gap` measures how much discrimination a fitted model leaves unrealised.
 
 **How the bootstrap is used.** `participants` is the number of rows or their unique string IDs
 in row order. You write `statistic`: it receives an array of 0-based row indices and returns
 `(left, right)`, the two models' scores on those rows. `paired_bootstrap_difference` then:
 
 1. draws the original number of rows with replacement (1,000 times by default, seed 0);
-2. scores both models on each draw, so the variation from which people were drawn moves both
-   scores together and, as far as it does, cancels in the difference;
+2. scores both models on the same resampled rows, so any change in score common to both models
+   cancels when you take the difference;
 3. records the difference, right minus left; a draw where `statistic` returns `None` (for
    example one with no events, for AUC) is recorded as `None` in `differences`, counted in
    `failed_resamples` and left out of the interval;

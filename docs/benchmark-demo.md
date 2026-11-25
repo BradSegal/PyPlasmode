@@ -24,8 +24,8 @@ of 42. The optional CSV holds the results at full precision.
 
 ## What is compared
 
-The 120 features are Gaussian and arranged in 30 independent blocks of four. Features in the
-same block have a population correlation of 0.7, so each feature has three correlates a model
+The 120 features are Gaussian, arranged in 30 independent blocks of four. Features in the same
+block have a population correlation of 0.7, so each feature has three correlates that a model
 could select in its place.
 
 Each signal structure decides which features generate the outcome and what a 20-feature
@@ -40,17 +40,17 @@ selection has to contain to recover them:
 The sparse and correlated structures produce the same generating score from the same eight
 features, so their outcomes and fitted models are identical. Only what counts as recovery
 differs: group recovery also credits a correlate. In the distributed structure, 20 selected
-features can carry at most 20 of the 60 equal weights, so its recovery cannot exceed one third
-before chance is subtracted. Because each structure has its own measure and maximum, compare
+features can carry at most 20 of the 60 equal weights, so its recovery cannot exceed a third
+before chance is subtracted. Since each structure has its own measure and maximum, compare
 recovery within a structure, not between structures.
 
 Ten-year event risk is 0.20 and eleven-year risk is 0.22. Follow-up ends at eleven years, and nobody
 leaves earlier. Prediction difficulty is set through `TimeToEventOutcome(target_auc=...)`: the
 expected ten-year AUC of the generating score (the number computed for each row from the generating
 features) is 0.60, 0.70 or 0.80. The outcome is simulated after this calibration, so the AUC
-realised on the test rows varies around the requested value. All nine settings use the same rows,
-split and random draws, so differences between them do not come from different draws. They still
-come from one draw: another seed can give different contrasts.
+realised on the test rows varies around the requested value. All nine settings use the same
+feature rows, split and underlying random numbers, so the comparisons hold those inputs
+fixed. Running the benchmark with another seed can change the differences.
 
 A fixed random split puts 60% of rows in training and 40% in evaluation. Features are scaled
 using the training rows only, so the evaluation rows do not inform the fit. The three methods:
@@ -61,9 +61,9 @@ using the training rows only, so the evaluation rows do not inform the fit. The 
 - **XGBoost** fits 80 trees of depth two to the same label, with learning rate 0.05 and one
   processor thread.
 
-The ten-year label is known for every row only because nobody leaves follow-up before ten
-years; with earlier censoring, ridge and XGBoost would need another approach. No
-hyperparameters are tuned, so the results describe these settings, not each method at its
+The ten-year label is known for every row only because no one leaves follow-up before ten years.
+With censoring before ten years, ridge and XGBoost would need another approach. There is no
+hyperparameter tuning, so the results are for these settings and do not show each method at its
 best.
 
 ## Reading the output
@@ -78,9 +78,10 @@ The console table has one row per comparison:
 - `Target` is the requested expected AUC of the generating score, and `Oracle` is that score's
   AUC on the evaluation rows once the outcomes are drawn. `Oracle` is roughly the best `AUROC`
   a model could reach on these rows; a fitted model can exceed it slightly by chance.
-- `Recovery` is the recovery of the structure's measure in the top 20 features, `Chance` the
-  recovery expected if the same selection (normally 20 features) went to features at random, and
-  `Adjusted` the difference, called recovery above chance.
+- `Recovery` uses the recovery measure for the signal structure on the top 20 features.
+  `Chance` is the expected recovery when a selection of the same size (normally 20 features)
+  is assigned to features at random. `Adjusted` is recovery above chance, the difference
+  between the two.
 - `Top20` is the number of features counted as selected.
 
 The first three rows of the default run:
@@ -100,7 +101,7 @@ generating features, a recovery above chance of 0.083. Similar AUC can come with
 recovery, so read the two columns separately. All rows come from one split with fixed model
 settings and carry no uncertainty intervals.
 
-The CSV adds the expected AUC that calibration achieved and the recovery measure used.
+The CSV adds the expected AUC the calibration achieved and the recovery measure used.
 
 Cox and ridge rank features by the absolute size of their coefficients on the scaled inputs,
 and XGBoost by gain importance. Features with zero importance are never selected, so `Top20`
@@ -108,8 +109,9 @@ falls below 20 when fewer than 20 features have positive importance. When severa
 tie for the last places, they share them, each counted as a fraction of a selection, so
 `Top20` can exceed 20.
 
-`Chance` comes from `evaluate_matched_recovery`, which gives the selection to features at
-random while keeping the number of selected features and their fractional shares. The script
-treats all 120 features as one pool, because every feature sits in a block of four with the
-same correlation, so no feature's correlation structure makes it easier to select. See
+`Chance` comes from `evaluate_matched_recovery`, which assigns the selection probabilities to
+features at random while keeping the number of selected features and their fractional shares.
+The script uses one stratum for all 120 features because each belongs to a block of four with
+the same within-block correlation, so no feature has an advantage due to its correlation
+structure. See
 [Matched chance recovery](evaluation.md#matched-chance-recovery).
