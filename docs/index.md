@@ -52,15 +52,19 @@ variation. **Recovery** is the fraction of the generating features in a selectio
 6. Repeat with independent seeds and summarise the paired results.
 
 Compare methods on the same generated samples. Vary the signal, effect size, sample size, or
-censoring to explore the conditions that matter for your application. The
-[methods guide](methods.md) explains how these choices define the simulation.
+censoring to explore the conditions that matter for your application. See [Methods](methods.md).
 
 ## Return types
 
-`Plasmode` contains `X`, `feature_ids`, `outcome`, `truth` (the signal and its generating
-score) and `source_indices`.
-`PartitionedPlasmode` contains training, validation and evaluation plasmodes and their original
-source identities. Evaluation functions return dataclasses or, for a single metric, a number;
-the [API reference](api.md) lists them.
+`generate` returns a `Plasmode` with sampled measurements (`X`, `feature_ids`), the
+simulated `outcome` and the generating score and recovery targets in `truth`. Each
+entry in `source_indices` gives the zero-based row position in the supplied `Population`.
+
+`generate_partitioned` returns a `PartitionedPlasmode` with three samples (`training`,
+`validation`, `evaluation`). Each sample's `source_indices` points into its own partition.
+To trace sampled rows back to the original unsplit `Population`, use
+`training_source_indices`, `validation_source_indices` or `evaluation_source_indices`.
+
+See the [API reference](api.md) for evaluation result fields.
 
 For empirical inputs, follow the [data handling guidance](privacy-and-limitations.md).

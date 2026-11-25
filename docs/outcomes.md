@@ -7,9 +7,8 @@ features.
 
 ## Shared example population
 
-The examples use four synthetic features, with A and B as the generating features. Run this
-setup once, then each outcome family below. Each generated outcome has one response for each
-sampled row.
+The examples use four synthetic features, with A and B as the generating features. Run the
+setup once, then run the outcome examples. Each outcome has one response per sampled row.
 
 ```python
 import numpy as np
@@ -45,7 +44,7 @@ print(binary.values.shape, round(float(binary.values.mean()), 3))
 # (10000,) 0.152
 ```
 
-This returns 10,000 zero/one labels with an event fraction close to 0.15. Event odds double for
+This draw gives 10,000 zero/one labels and an event fraction of 0.152 (target 0.15). Event odds double for
 a one-standard-deviation increase in the generating score.
 
 ## Continuous
@@ -60,41 +59,44 @@ print(round(float(continuous.values.mean()), 2), round(float(continuous.values.s
 # 99.92 14.83
 ```
 
-The response has mean near 100 and standard deviation near 15, in the units of the
-measurement. A one-standard-deviation increase in the generating score raises its
+The mean is 99.92 and the standard deviation is 14.83 (targets 100 and 15, in measurement units). A one-standard-deviation increase in the generating score raises its
 conditional mean by five units.
 
 ## Counts
 
-Counts describe how many events occur during an exposure period. `CountOutcome` takes the
-average rate per unit exposure and a rate ratio per standard deviation of the generating
-score. For example,
-`CountOutcome(rate=3, rate_ratio=1.5, variance_to_mean=2)` specifies three events per exposure
-unit on average, a 50% higher conditional rate per standard deviation, and extra
-variation beyond a Poisson model.
+`CountOutcome` generates integer counts such as hospital admissions over a
+period of follow-up. Set `rate` to the expected total count divided by total
+exposure. A `rate_ratio` of 1.5 raises the expected rate by 50% for each
+one-standard-deviation increase in the generating score.
 
-The variance-to-mean ratio controls variation among observations with the same generating
-score and exposure. If their expected count is 4, a ratio of 2 gives variance 8. A ratio of 1 gives the
-Poisson model, whose variance equals its mean. Ratios above 1 use the NB1 negative-binomial
-model: variance increases in direct proportion to the conditional mean. This differs from
-the pooled variance across observations, which also reflects differences in their expected counts.
-For reproduction, the negative-binomial shape is `mu / (variance_to_mean - 1)` and its gamma
-mixing scale is `variance_to_mean - 1`.
+Set `exposure` to a finite positive amount shared by all rows (default `1.0`)
+or supply one such amount per generated row. `counts.exposure` gives the
+amount used for each row. Choose exposure units to match your rate, such as
+years for admissions per year.
+
+At a given score and exposure, `variance_to_mean` sets the variance divided by
+the expected count. The default of 1 gives Poisson counts. A value above 1
+gives negative-binomial (NB1) counts. With expected count 4 and
+`variance_to_mean=2`, the variance is 8. The pooled variance also reflects
+differences in expected counts across rows.
 
 ```python
 counts = simulate(ppm.CountOutcome(rate=3, rate_ratio=1.5, variance_to_mean=2))
 print(counts.values.dtype, round(float(counts.values.mean()), 3))
 # int64 2.975
+
+count_spec = ppm.CountOutcome(rate=3, rate_ratio=1.5, exposure=(1.0, 2.0))
+varying_counts = ppm.generate_outcome(count_spec, np.array([-1.0, 1.0]), np.random.default_rng(7))
+print(varying_counts.exposure, varying_counts.values)  # [1. 2.] [3 5]
 ```
 
-The result contains integer event counts, averaging approximately three per unit exposure.
-For a hospital-admission application, an exposure unit could be one year.
+The first draw averages 2.975 counts per exposure unit, against a target of
+three. The second draw assigns one year to the first row and two to the second.
 
 ## Ordered categories
 
 `OrdinalOutcome` accepts ordered labels, their marginal probabilities and a common
 odds ratio; proportional-odds thresholds are calibrated to those probabilities.
-For example, categories `low`, `middle` and `high` can have probabilities 0.25, 0.50 and 0.25.
 With a common odds ratio above one, a higher generating score shifts probability towards the
 higher categories, with the same effect at every category boundary.
 
@@ -110,13 +112,11 @@ print(ordinal.categories, np.bincount(ordinal.codes) / len(ordinal.codes))
 # ('low', 'middle', 'high') [0.2524 0.4973 0.2503]
 ```
 
-The output stores category names and integer codes 0, 1 and 2. Category proportions
-are close to the requested quarters/half/quarter.
+The output stores category names and integer codes 0, 1 and 2. The realised proportions are 0.2524, 0.4973 and 0.2503 (targets 0.25, 0.50 and 0.25).
 
 ## Time to event
 
-Specify event risks at times relevant to your application and let PyPlasmode determine the
-distribution parameters. For example, risks of 10% at five years and 25% at ten years allow the
+Specify event risks at times relevant to your application. For example, risks of 10% at five years and 25% at ten years allow the
 baseline event rate to change after year five. PyPlasmode uses a constant rate within each
 interval, giving a piecewise-exponential model that matches these cumulative risks.
 
@@ -124,9 +124,7 @@ interval, giving a piecewise-exponential model that matches these cumulative ris
 horizons, either a hazard ratio or `target_auc`, and optional cumulative censoring risks at
 the same horizons. Censoring is independent. Administrative follow-up ends at the last
 risk point unless a later `administrative_horizon` is supplied; no events occur after the
-last risk point. The
-[calibration guide](calibration.md) covers `target_auc` and the `auc_horizon` at which it
-applies. Targets describe latent event risk before censoring.
+last risk point. See the [calibration guide](calibration.md) for `target_auc` and `auc_horizon`. Targets describe latent event risk before censoring.
 
 ```python
 survival = simulate(
@@ -143,30 +141,37 @@ print(round(float(survival.event.mean()), 3))
 ```
 
 `time` contains follow-up in days and `event` indicates whether the event was observed. The
-observed event fraction is usually below the requested 25% ten-year latent event risk
-because some observations are censored before their event. Fit survival models to
+observed event fraction is 0.235 (25% target latent risk at ten years). Censoring before an
+event excludes it from the observed count. Fit survival models to
 `time` and `event`; the returned latent event times are available for simulation checks.
 
 ## Calibration equations
 
-For the standardised generating score `z`, binary odds-ratio generation uses
-`P(Y=1|z) = expit(alpha + log(OR)*z)`, solving `mean(P)=probability` for `alpha`.
-Risk-ratio generation uses `exp(alpha + log(RR)*z)`; risk-difference generation uses
-`probability + RD*z`.
+In these equations, `z` is the standardised generating score. Calibration
+chooses `alpha` (the intercept) where it appears.
 
-Continuous generation uses `Y = mean + effect*z + epsilon`, with independent Gaussian
-`epsilon` of variance `standard_deviation^2 - effect^2`. For requested `R2`,
-`effect = standard_deviation*sqrt(R2)`. A signed effect can be supplied directly.
-
-For counts, `mu_i = exposure_i*exp(alpha + log(rate_ratio)*z_i)` and
-`sum(mu_i)/sum(exposure_i) = rate`. Exposures refer to generated rows in their output order;
-an exposure vector is not resampled as if it were a source-population column.
-
-Ordinal generation uses `P(Y <= c|z) = expit(threshold_c - log(common_odds_ratio)*z)`.
-Each threshold matches its requested marginal cumulative category probability.
-
-Survival generation uses `S(t|z) = exp(-H0(t)*exp(log(hazard_ratio)*z))`.
-At each supplied horizon, solve `mean(S(t|z)) = 1 - event_risk(t)`; interpolate cumulative
-hazard linearly between horizons, giving constant interval hazards. Event and independent
-censoring thresholds are drawn from unit exponentials and inverted against those cumulative
-hazards. Observed time is the minimum of event, censoring and administrative time.
+- **Binary.** The row probability is `expit(alpha + log(odds_ratio)*z)` for an
+  odds ratio, with `expit` the inverse logit. A risk ratio uses
+  `exp(alpha + log(risk_ratio)*z)`. A risk difference uses
+  `alpha + risk_difference*z`. The mean row probability equals `probability`.
+- **Continuous.** Draw `mean + effect*z + epsilon`, where `epsilon` is
+  independent zero-mean Gaussian noise with variance
+  `standard_deviation**2 - effect**2`. Set `variance_explained` to get
+  `effect = standard_deviation*sqrt(variance_explained)` or supply a signed
+  `effect` directly.
+- **Counts.** The expected row count is `mu = exposure*exp(alpha + log(rate_ratio)*z)`.
+  Calibration sets `sum(mu)/sum(exposure) = rate`. A `CountOutcome(exposure=...)`
+  vector describes generated rows, so resampling `X` leaves it in place.
+  Supply `sample_size` entries for `generate` or the combined count in
+  training, validation and evaluation order for `generate_partitioned`.
+- **Ordered categories.** The probability of category `c` or lower is
+  `expit(threshold_c - log(common_odds_ratio)*z)`. Calibration chooses
+  `threshold_c` so its average equals the requested cumulative probability
+  through `c`.
+- **Time to event.** The event-free probability at time `t` is
+  `S(t|z) = exp(-H0(t)*exp(log(hazard_ratio)*z))`. The baseline cumulative
+  hazard `H0(t)` solves `mean(S(t|z)) = 1 - event_risk(t)` at each supplied
+  risk point. Here `event_risk(t)` is the target before censoring.
+  Linear interpolation of `H0(t)` gives a constant baseline rate within
+  each interval. Observed time is the earliest of the drawn event time,
+  independent censoring time and administrative cutoff.

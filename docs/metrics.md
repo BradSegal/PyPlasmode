@@ -7,10 +7,13 @@ before using an array-based metric.
 
 ## Selection stability
 
-`selection_stability` measures how consistently refits of a method select the same
-features, corrected for chance. Create one selection per refit with
-[`nomination_from_scores`](evaluation.md#rankings-and-scores), which returns a
-`FractionalNomination`. Zero importance is excluded, so membership budgets can differ.
+`selection_stability` measures how consistently refits select the same features. A
+`value` of 1 means identical selections with no split slots, 0 means chance-level
+agreement, and a negative value means less agreement than chance.
+
+Use [`nomination_from_scores`](evaluation.md#rankings-and-scores) to make one selection
+per refit. It splits a slot among features tied at the cutoff and excludes zero
+importance. Supply at least two refits that score the same two or more features.
 
 ```python
 import pyplasmode as ppm
@@ -20,115 +23,148 @@ features = ("A", "B", "C", "D")
 scores = [[4, 3, 0, 0], [4, 0, 0, 0], [4, 0, 3, 0]]
 nominations = [ppm.nomination_from_scores(features, row, depth=2) for row in scores]
 stability = selection_stability(nominations)
-assert stability.membership_budgets == (2.0, 1.0, 2.0)
+print(round(stability.value, 3))  # 0.314
+print(stability.frequencies)  # (1.0, 0.3333333333333333, 0.3333333333333333, 0.0)
+print(stability.membership_budgets)  # (2.0, 1.0, 2.0)
 ```
 
-The definition extends the chance-corrected variance measure of
-[Nogueira et al.](https://jmlr.org/papers/v18/17-514.html), Definition 4, from binary
-selections to ties. For a refit-by-feature selection probability matrix Q, the numerator is the mean across
-features of `var(Q, ddof=1) + mean(Q*(1-Q))`. The denominator is `q*(1-q)`, where
-q is the mean membership over all refits and features. Stability is one minus
-their ratio. The additional term integrates independent tie resolutions; a
-repeated completely uninformative tie has stability zero.
-Negative estimates are retained. All-empty or all-full selections return
-`value=None` because the chance denominator is zero. Unequal membership budgets
-cap maximum stability below one, even when the smaller selections are nested.
+A is selected every time, B and C once each, and D never. Five slots across
+12 refit–feature combinations give `q = 5/12`.
+
+For each feature, let `Q` be its selection probabilities across refits. Compute
+`var(Q, ddof=1) + mean(Q*(1-Q))`, then average over features. Stability is one
+minus this average divided by the chance variance `q*(1-q)`. The second term
+accounts for ties being broken independently in each refit. When every refit ties all features for
+the same number of slots, that term alone equals the chance variance and
+stability is zero whenever only some slots are filled. The measure extends Definition 4 of
+[Nogueira et al.](https://jmlr.org/papers/v18/17-514.html).
+
+If every selection is empty or every selection is full, `value` is `None` because
+the chance variance is zero. When refits fill different numbers of slots, stability
+is below one even if every smaller selection is contained in every larger one.
 
 ## Consensus and rank-biased overlap
 
-`consensus_ranking` merges the importance scores from several refits into a single ranking, and
-`rank_biased_overlap` (RBO) compares two rankings with possible ties.
+Use `consensus_ranking(features, scores, depth=...)` to order features across
+refits. It sorts by average selection probability at that depth, highest first.
+It breaks ties using the median rank among refits that gave the feature any
+membership. Within each refit, ranks start at 1 and ties share the average of
+their positions across all features. A feature never selected has median rank
+`float("inf")`.
 
-`consensus_ranking(features, scores, depth=...)` orders features by mean fractional
-inclusion in the leading list, then median rank among refits with positive
-membership. Never-selected features receive median rank `float("inf")`. Equal evidence
-retains an equal comparison rank. The `ranking` field uses feature names to order
-storage within ties; use `ranks` for numerical comparisons.
+`consensus.ranking` lists feature names in sorted order, alphabetically when the
+evidence ties. `consensus.ranks`, `inclusion_probabilities` and
+`median_selected_ranks` follow the order of the input `features`. Features with
+equal evidence have equal numerical ranks.
+
+`rank_biased_overlap` (RBO) measures how much two rankings agree near the top.
+Pass complete rank vectors for the same features in the same order, such as
+the `ranks` from two consensus results built with identical `features`. Lower
+ranks are better. Convert importance scores with
+`scipy.stats.rankdata(-scores, method="average")` for a NumPy array of scores.
+
+- Use `tie_method="webber"` (default) to count a tie as a group. Include the whole
+  group if it starts at or above the cutoff. Agreement is twice the number of
+  shared features divided by the combined size of the two lists.
+- Use `tie_method="independent"` to compare the lists you would get by breaking
+  ties independently and uniformly at random. Agreement is the expected number
+  of shared features divided by the number of slots.
 
 ```python
-consensus = consensus_ranking(features, scores, depth=2)
-assert consensus.ranking[0] == "A"
-assert rank_biased_overlap([1, 2, 3, 4], [1, 2, 3, 4]) == 1.0
+consensus = consensus_ranking(("C", "B", "A"), [[0, 4, 4], [0, 3, 3]], depth=1)
+print(consensus.ranking)  # ('A', 'B', 'C')
+print(consensus.ranks)  # (3.0, 1.5, 1.5)
+for tie_rule in ("webber", "independent"):
+    print(
+        rank_biased_overlap(consensus.ranks, consensus.ranks, persistence=0.5, tie_method=tie_rule)
+    )
+# 1.0
+# 0.75
 ```
 
-`rank_biased_overlap(left_ranks, right_ranks, persistence=0.9)` requires complete,
-equally sized feature universes in the same array order. Lower ranks are better;
-equal values indicate ties. **Convert importance scores, where higher is better,
-with `scipy.stats.rankdata(-scores, method="average")` before passing them here.**
-The prefix at depth d receives weight `(1-p)*p**(d-1)`; the complete-list tail
-receives `p**(n-1)`. For untied rankings,
-[`rank_stability`](evaluation.md#ranking-stability) gives Jaccard, Spearman and RBO.
+Both rules give full agreement from depth two. At depth one, the whole-tie rule
+keeps both A and B, giving full agreement. With independent tie breaks, the
+first features match half the time. Depth one has weight 0.5, so RBO is
+`0.5 * 0.5 + 0.5 * 1 = 0.75`.
 
-The default `tie_method="webber"` uses the published whole-tie convention:
-include every item whose tie group starts at or before depth d, then compute
-`2*len(intersection)/(len(left_prefix)+len(right_prefix))`. Identical tied lists
-have agreement one. See Webber et al. (2010), Equation 28 in section 4.6 of
-[the author's manuscript](https://www.codalism.com/research/papers/wmz10_tois.pdf).
-
-Choose `tie_method="independent"` to average RBO over independent uniform
-tie-breaking permutations instead. Its prefix agreement is the dot product of
-fractional prefix memberships divided by d. A fully tied list has self-agreement
-below one under this convention.
+For `n` features and `p = persistence` (default 0.9), depth `d` gets weight
+`(1-p)*p**(d-1)` for depths 1 to `n-1`. The remaining weight, `p**(n-1)`,
+goes to the full list, whose agreement is always one. See Equation 28 of
+[Webber et al.](https://www.codalism.com/research/papers/wmz10_tois.pdf) for the
+whole-tie convention and [`rank_stability`](evaluation.md#ranking-stability)
+for Jaccard, Spearman and RBO on untied rankings.
 
 ## Censored discrimination
 
-`cumulative_dynamic_auc(training_time, training_event, time, event, risk,
-horizon=..., tied_tolerance=0.0)` estimates AUC at one time horizon from censored
-follow-up. It uses the training sample to estimate the
-censoring distribution by reverse Kaplan–Meier. Cases have observed events at
-or before the horizon. Controls have observed times strictly beyond it.
-Censoring at or before the horizon does not create a control. Case weights are
-`1/G(event_time)`; the controls' common horizon weight cancels. With event/censor
-ties in the training sample, events leave the risk set before censoring.
+`cumulative_dynamic_auc` measures how well risk scores separate people who had
+an event by `horizon` (cases) from people observed beyond it (controls).
+People censored at or before the horizon are neither. Supply risk scores that
+increase with event risk.
 
-The default uses exact score ties with half credit. An explicit positive
-`tied_tolerance` uses adjacent-score blocks, including transitive chains, which is
-the scikit-survival convention. Set `tied_tolerance=1e-8`
-to match scikit-survival's default `tied_tol=1e-8`. This can merge dense
-probabilities into large blocks; use it only when that convention is intended. It matches
-how ties are scored; the two libraries still differ in the follow-up they require.
+AUC is the weighted fraction of case–control pairs in which the case ranks
+higher, with half credit for ties. Each case gets weight `1/G(t)` at its event
+time `t`. Here `G(t)` is the probability of remaining uncensored past `t`,
+estimated by reverse Kaplan–Meier on `training_time` and `training_event`.
+When an event and censoring occur at the same training time, events leave the
+risk set first. Controls all have the same weight, which cancels in the fraction.
 
 ```python
 from pyplasmode.metrics import cumulative_dynamic_auc
 
 auc = cumulative_dynamic_auc(
-    [1, 2, 4, 5],
-    [1, 0, 1, 0],
-    [1, 2, 4, 5],
-    [1, 0, 1, 0],
-    [0.9, 0.2, 0.1, 0.0],
+    training_time=[1, 2, 4, 5],
+    training_event=[1, 0, 1, 0],
+    time=[1, 2, 4, 5],
+    event=[1, 0, 1, 0],
+    risk=[0.9, 0.2, 0.1, 0.0],
     horizon=3,
 )
-assert auc == 1.0
+print(auc)  # 1.0
 ```
 
-Use one time unit throughout. To evaluate ten years in days, use
-`horizon=ppm.years(10).days`. Both training and evaluation follow-up must extend
-beyond the horizon; [calibration](calibration.md) shows how to generate follow-up
-beyond a chosen horizon. With a landmark, subtract
-the landmark from both follow-up and the absolute horizon.
+The first row is the only case and outranks both controls, the third and fourth
+rows. The second row is excluded because follow-up ended at time 2 without an
+observed event.
 
-The function raises `ValueError` for missing cases or controls, invalid arrays,
-a horizon that is not positive and finite or that reaches the maximum training follow-up,
-or zero censoring survival. It assumes
-independent censoring and does not estimate competing-risk cumulative incidence
-or support delayed entry. See the
-[scikit-survival definition](https://scikit-survival.readthedocs.io/en/stable/api/generated/sksurv.metrics.cumulative_dynamic_auc.html).
+By default, `tied_tolerance=0.0` gives half credit only for exact ties. With a
+positive tolerance, consecutive scores within that distance form one tie block,
+even when the endpoints are farther apart. Set `tied_tolerance=1e-8` to match the
+default tie rule of [scikit-survival](https://scikit-survival.readthedocs.io/en/stable/api/generated/sksurv.metrics.cumulative_dynamic_auc.html).
+
+Use the same time unit throughout. For ten years in days, use
+`horizon=ppm.years(10).days`. The horizon must be finite and positive, below
+`max(training_time)), and below at least one evaluation time. See
+[calibration](calibration.md) to generate longer follow-up. For landmarking,
+keep only rows observed past the landmark in both samples, then subtract the
+landmark from their times and the absolute horizon.
+
+Invalid inputs, missing cases or controls, or zero censoring survival at a case
+time or at the horizon raise `ValueError`. The estimator assumes independent
+censoring and does not handle competing risks or delayed entry.
 
 ## Paired bootstrap and discrimination gap
 
-`paired_bootstrap_difference` gives an interval for the difference between two fixed
-fitted models evaluated on the same observations. It uses one resampled index vector
-for both methods. A
-callback returns their two statistics, or `None` if either is undefined. The
-result is **right minus left**, with a percentile interval. Defaults are 1,000
-attempts, 95% confidence and seed 0. Failures remain explicit in
-`differences` and `failed_resamples`; at least two draws must succeed. Do not
-catch arbitrary errors as undefined draws. The interval with failures is
-conditional on success. A large failure count can make the interval misleading
-in low-event samples, because it excludes zero-event resamples. Pass a row
-count or a sequence of unique IDs as `participants`. Models remain fixed; the callback controls whether any
-evaluation nuisance parameters are re-estimated.
+Use `paired_bootstrap_difference(participants, statistic)` to get a percentile
+interval for the difference between two fixed models evaluated on the same rows.
+Pass a row count or unique string IDs in row order. The callback `statistic`
+receives zero-based integer row indices either way. Each draw samples the original
+number of rows with replacement. Use the same indices for both statistics
+and return `(left, right)`. The callback also determines whether to re-estimate
+quantities used to score the models, such as censoring weights.
+
+`left` and `right` give the original estimates, and `difference` is right minus
+left on those rows. `confidence_interval_low` and `confidence_interval_high` give
+the percentile limits. Defaults are 1,000 attempts, 95% confidence and seed 0.
+
+Return `None` if a draw makes either statistic undefined. Those draws appear as
+`None` in `differences` and are counted in `failed_resamples`. The original
+statistics must be defined and at least two draws must succeed. The interval is
+conditional on success, so report exclusions such as zero-event draws.
+
+`discrimination_gap` applies one AUC metric to the generating and fitted
+scores on the same evaluation data. It returns `oracle_auc`, `fitted_auc` and
+their difference, `gap = oracle_auc - fitted_auc`. The gap is negative when
+the fitted AUC is higher.
 
 ```python
 import numpy as np
@@ -149,27 +185,21 @@ def statistic(indices):
     )
 
 
-comparison = paired_bootstrap_difference(
-    len(labels),
-    statistic,
-    resamples=100,
-    seed=7,
-)
+comparison = paired_bootstrap_difference(len(labels), statistic, resamples=100, seed=7)
+print(comparison.difference, comparison.failed_resamples)  # 0.0 5
+
 oracle_risk = np.array([0.1, 0.2, 0.4, 0.8, 0.5, 0.9])  # illustrative values
 gap = discrimination_gap(oracle_risk, left, metric=lambda scores: roc_auc_score(labels, scores))
-assert np.isclose(gap.gap, -1 / 9)
+print(round(gap.gap, 3))  # -0.111
 ```
 
-For differences across independent simulated datasets, use
-[`compare_paired_replicates`](evaluation.md#paired-procedure-comparisons) instead.
+The generating score ranks eight of nine case–control pairs correctly: the case
+at 0.4 ranks below the control at 0.5. The fitted score ranks all nine correctly,
+so the gap is `8/9 - 1 = -1/9`.
 
-`discrimination_gap` measures how much discrimination the fitted predictor loses
-relative to the generating score on the evaluation sample. It reports the AUC of the
-generating score minus the fitted AUC (`oracle_auc - fitted_auc`), using one supplied
-metric and shared outcomes, censoring reference and evaluation sample. Negative
-sample gaps are possible. `learnability_gap` is an alias. To bootstrap this gap,
-return **fitted, then generating score** from the callback, so right-minus-left
-equals the gap.
-For a protective effect (`odds_ratio < 1` or `hazard_ratio < 1`) pass
-`calibration["signal_coefficient"] * truth.signal`
-as `oracle_risk`, so higher scores still mean greater event risk.
+For a protective effect, such as an odds or hazard ratio below one, pass
+`outcome.calibration["signal_coefficient"] * truth.signal` as `oracle_risk` so that
+higher scores mean greater event risk. `learnability_gap` is an alias. To
+bootstrap the gap, return the fitted AUC first and the generating-score AUC
+second. To compare methods across independent simulated datasets, use
+[`compare_paired_replicates`](evaluation.md#paired-procedure-comparisons).

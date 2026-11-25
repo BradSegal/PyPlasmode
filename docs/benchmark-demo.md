@@ -18,7 +18,7 @@ The extra is tested on Python 3.12-3.15 on Linux, with Windows and macOS covered
 3.13.
 
 The default is 3,000 rows and 120 features, with one numerical thread. Allow a
-few minutes on a laptop CPU. `--rows 1000` provides a smaller demonstration;
+few minutes on a laptop CPU. Use `--rows 1000` for a smaller run.
 `--seed` sets the random seed (default 42). The final console table and optional
 CSV contain all 27 comparisons: three signal structures, three effect sizes and three
 methods. The CSV retains full precision, the expected and realised AUC (area under
@@ -36,8 +36,8 @@ the same block have population correlation 0.7. There are three signal structure
 | Correlated | The same eight features (`sentinels`), each with three correlates: the other features in its block | Fraction of groups represented by at least one selected member |
 | Distributed | Equal weights on the first 60 features | Fraction of absolute generating weight selected |
 
-The sparse and correlated signals use the same generating features; their different
-recovery definitions show how crediting correlates changes the question being answered.
+The sparse and correlated signals use the same generating features. Group recovery
+also credits selecting a correlate.
 A 20-feature panel cannot cover all 60 distributed features; its maximum recovery,
 before subtracting chance, is one third. Interpret recovery within a signal structure,
 not between structures.
@@ -58,23 +58,37 @@ observed only because there is no early censoring.
 
 ## Reading the output
 
-`AUROC` is the ten-year cumulative/dynamic AUC from `pyplasmode.metrics.cumulative_dynamic_auc`,
-using the training censoring distribution. With the chosen follow-up it equals standard binary
-AUC at ten years.
+`AUROC` measures how well a model ranks people with an event by ten years
+above those observed beyond ten years. With no early censoring it equals
+binary AUC on the ten-year event labels. With censoring, the
+[AUC estimator](metrics.md#censored-discrimination) uses training follow-up
+to give more weight to cases whose event times were less likely to be observed.
 
-Absolute standardised coefficients rank Cox and ridge features; XGBoost uses
-gain importance. `nomination_from_scores` allocates boundary ties fractionally
-and does not fill unused slots with zero-importance features. `Top20` reports
-the achieved size. `evaluate_matched_recovery` compares each selection with
-random selections of the same size, positive support and tie
-geometry, drawn without reference to the signal, within one common feature stratum:
-all blocks have the same size and population correlation.
+`Target` is the requested expected AUC of the generating score.
+`Oracle` is the AUC of that score on the held-out rows after outcomes are drawn.
+The CSV also gives the expected AUC that calibration achieved.
 
-`Adjusted` is recovery above chance: **observed minus expected chance recovery**,
-without rescaling
-or clipping. Negative values are possible. `Target` is the requested expected AUC of the
-generating score; the CSV also records the value that calibration achieved.
-`Oracle` is its realised held-out value. Compare `AUROC` and recovery
-across the three targets: stronger discrimination need not yield an equally
-large change in recovery. This is one synthetic split with fixed model settings,
-so its table demonstrates the evaluation rather than establishing a method ranking.
+```text
+Scenario     Target Method    AUROC Oracle Recovery Chance Adjusted Top20
+sparse       0.60   Cox      0.529 0.606  0.125    0.167  -0.042    20
+sparse       0.60   ridge    0.529 0.606  0.125    0.167  -0.042    20
+sparse       0.60   XGBoost  0.526 0.606  0.250    0.167  0.083    20
+```
+
+In the Cox row, the panel recovers one of eight generating features (0.125).
+Subtracting chance recovery (0.167 after rounding) gives `Adjusted` of −0.042.
+Negative values mean recovery below chance. Compare `AUROC` and recovery
+separately. Similar AUCs can accompany different recovery, as these rows show.
+The results apply to one synthetic split with fixed model settings.
+
+Cox and ridge rank features by absolute coefficients on the standardised
+inputs. XGBoost ranks by gain importance. `Top20` counts features given any
+selection weight. It falls below 20 when fewer than 20 features have positive
+importance. It exceeds 20 when features share the remaining slots at
+the cutoff. Zero-importance features get no weight.
+
+`evaluate_matched_recovery` computes chance recovery by assigning selection
+weights to features at random. It preserves the number of positive-importance
+features and the pattern of full and fractional selection weights.
+The example treats all features as one pool. See
+[Matched chance recovery](evaluation.md#matched-chance-recovery).
