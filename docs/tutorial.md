@@ -172,11 +172,11 @@ The answer depends on what "random" means. If one kind of feature is more likely
 generating feature, a list that favours that kind scores well without having identified
 anything. A *stratum* is a label you give each feature to say which features the random list
 may swap for which, so that the random list resembles the real one in kind. Here the labels
-are `pair` for the four paired features and `singleton` for the other four.
+are `paired` for the four features in a correlated pair and `unpaired` for the other four.
 
 ```python
 nomination = ppm.nomination_from_scores(names, scores, depth=2)
-strata = ("pair", "pair", "pair", "pair", "singleton", "singleton", "singleton", "singleton")
+strata = ("paired",) * 4 + ("unpaired",) * 4
 matched = ppm.evaluate_matched_recovery(nomination, train.truth, estimand="exact", strata=strata)
 print(matched.observed_recovery, matched.expected_recovery, matched.chance_adjusted_recovery)
 # 1.0 0.5 0.5
@@ -191,7 +191,7 @@ print(unmatched.expected_recovery, unmatched.chance_adjusted_recovery)
 `nomination_from_scores` turns the importance scores into the top two features (the API calls
 a selection a *nomination*). `evaluate_matched_recovery` then:
 
-1. counts the model's selections in each stratum: two in `pair`, none in `singleton`;
+1. counts the model's selections in each stratum: two in `paired`, none in `unpaired`;
 2. builds the random reference by keeping those counts and reshuffling which features within
    each stratum are selected;
 3. computes the expected recovery of that reference exactly, without simulation;
@@ -204,12 +204,16 @@ reference:
 | Random reference | Expected recovery | Recovery above chance |
 | --- | --- | --- |
 | One stratum: any two of the eight features | 0.25 | 0.75 |
-| `pair` and `singleton`: any two of the four paired features | 0.50 | 0.50 |
+| `paired` and `unpaired`: any two of the four paired features | 0.50 | 0.50 |
 
-Both selections were paired features, so the fair reference also picks two paired features,
-and half of those are generating. The one-stratum 0.75 credits the model for looking among
-correlated features at all. The matched 0.5 credits it only for telling A from A_proxy. Had
-the model selected A and B_proxy, recovery would be 0.5 and recovery above chance zero.
+Both selections were paired features, so the fair reference also picks two of the four paired
+features. There are six ways to do that. One finds both A and B (recovery 1.0), four find one
+of them (0.5) and one finds neither (0), which averages 0.5. The random list picks features,
+not pairs: A_proxy is a different feature from A, and this measure asks for A itself.
+
+The one-stratum 0.75 credits the model for looking among correlated features at all. The
+matched 0.5 credits it only for telling A from A_proxy. Had the model selected A and B_proxy,
+recovery would be 0.5 and recovery above chance zero.
 
 ## Matching strata on empirical measurements
 
