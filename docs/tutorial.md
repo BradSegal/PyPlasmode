@@ -106,22 +106,79 @@ features. Selecting A and B gives both scores 1.0. Selecting A and B_proxy gives
 
 ## Compare with matched chance
 
-Recovery above chance subtracts the recovery expected from random lists of the same size
-and composition. Here, the random lists match the number of selections (`nomination` in the API)
-from correlated pairs and independent features. These two categories form the *strata* for the random reference. Within each
-stratum, feature identities are treated as exchangeable.
+A list of two features contains a generating feature some of the time by luck. Recovery above
+chance removes that luck: it is the recovery you observed minus the recovery expected from
+choosing features at random.
+
+The random choice has to be a fair one. Picking any two of the eight features finds a quarter
+of A and B on average. But A and B are both among the four paired features, and a model's top
+choices tend to fall there too, on a generating feature or on its correlate. Picking two of
+the four paired features finds half of A and B on average, so a model can score well above
+the all-features figure without telling A from A_proxy.
+
+To make the comparison fair, give each feature a label that says what kind it is, called its
+*stratum*: here `pair` for the four paired features and `singleton` for the other four. The
+random reference keeps the number of selections in each stratum and varies only which features
+within it are chosen.
 
 ```python
 nomination = ppm.nomination_from_scores(names, scores, depth=2)
 strata = ("pair", "pair", "pair", "pair", "singleton", "singleton", "singleton", "singleton")
 matched = ppm.evaluate_matched_recovery(nomination, train.truth, estimand="exact", strata=strata)
 print(matched.observed_recovery, matched.expected_recovery, matched.chance_adjusted_recovery)
+# 1.0 0.5 0.5
 ```
 
-If both selections come from the four paired features, random assignment recovers half
-the two generating features on average. Finding both gives recovery 1.0, expected recovery
-0.5 and recovery above chance 0.5 (`chance_adjusted_recovery`). Finding just A and B_proxy
-gives recovery 0.5 and recovery above chance zero.
+`nomination_from_scores` turns the importance scores into the top two features (the API calls
+a selection a *nomination*). The model selected A and B, so recovery is 1.0. Two paired
+features chosen at random recover 0.5, which leaves a recovery above chance of 0.5
+(`chance_adjusted_recovery`). Had the model selected A and B_proxy, recovery would be 0.5 and
+recovery above chance zero: no better than choosing paired features at random.
+
+## Matching strata on empirical measurements
+
+Here the strata were known, because the pairs were built by hand. Real measurements carry no
+such labels, so you need a rule that sorts features into strata. A workable rule is how
+strongly each feature correlates with any other: features with close correlates are the
+ones a model can swap for one another, and they should be compared with each other.
+
+```python
+correlations = np.abs(np.corrcoef(population.X, rowvar=False))
+np.fill_diagonal(correlations, 0.0)
+strongest = correlations.max(axis=0)
+print(np.round(strongest, 2))
+# [0.95 0.95 0.95 0.95 0.02 0.01 0.02 0.02]
+
+labels = ("weak", "moderate", "strong")
+empirical_strata = tuple(labels[i] for i in np.digitize(strongest, [0.3, 0.7]))
+print(empirical_strata)
+# ('strong', 'strong', 'strong', 'strong', 'weak', 'weak', 'weak', 'weak')
+
+empirical = ppm.evaluate_matched_recovery(
+    nomination, train.truth, estimand="exact", strata=empirical_strata
+)
+print(empirical.chance_adjusted_recovery, empirical.admissible_panel_count)
+# 0.5 6
+```
+
+The first three lines compute the absolute correlation between every pair of features,
+set each feature's correlation with itself to zero, and keep each feature's strongest
+correlation with another. `np.digitize` then sorts features into three strata: below 0.3,
+0.3 to 0.7, and above 0.7. The rule recovers the hand-made strata, so the result is the same.
+
+Three things keep the comparison honest:
+
+- **Fix the rule before you look at results.** The strata may use the measurements but not
+  the outcomes, the signal or anything a fitted model produced. Cut points chosen after
+  seeing which features were selected can be tuned, knowingly or not, to flatter a method.
+- **Check that chance has room to vary.** `admissible_panel_count` is the number of ways the
+  random reference can rearrange the selection within its strata: 6 here, the ways to choose
+  two of four paired features. If it is 1, the only possible random selection is the
+  observed one and recovery above chance is zero whatever the model did. Use fewer, larger
+  strata.
+- **Prepare the matrix first.** `np.corrcoef` returns missing values for a column that is
+  constant or contains missing values. Drop constant columns and compute correlations on
+  complete rows or with pairwise deletion (for example `pandas.DataFrame.corr`).
 
 ## Change the signal structure
 
@@ -160,24 +217,3 @@ time-to-event data, see [Outcomes](outcomes.md).
   [`paired_bootstrap_difference`](metrics.md#paired-bootstrap-and-discrimination-gap)
 - Compare two procedures by running both on each independently simulated dataset.
   [`compare_paired_replicates`](evaluation.md#paired-procedure-comparisons)
-
-## Matching strata on empirical measurements
-
-For an empirical matrix, define strata before generating outcomes or fitting
-models. For example, bin each feature by its strongest absolute correlation
-with another feature. Estimate these correlations on the source or training
-measurements, keeping evaluation outcomes out of this step:
-
-```python
-correlations = np.abs(np.corrcoef(population.X, rowvar=False))
-np.fill_diagonal(correlations, 0.0)
-max_correlation = correlations.max(axis=0)
-correlation_bins = np.digitize(max_correlation, [0.3, 0.7])
-empirical_strata = tuple(f"correlation_{int(b)}" for b in correlation_bins)
-assert len(empirical_strata) == len(population.feature_ids)
-```
-
-Compute correlations on complete, non-constant features. Resolve missingness or
-use missingness-rate bins before computing correlations on other matrices.
-Choose bin boundaries before examining recovery. Check that the matched random selection permits
-more than one assignment across the strata (`admissible_panel_count > 1`).
