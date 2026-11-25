@@ -12,9 +12,6 @@ the comparison, [Morris et al.](references.md#simulation-studies) introduce the 
 
 ![Observed measurements supply realistic features; a specified signal supplies the recovery target](assets/concepts/plasmode-workflow.png)
 
-Compare predictions with generated outcomes and selected features with the known signal.
-Use the same comparisons for biomarker data or any numeric feature matrix.
-
 1. Sample complete rows from the source matrix. The default is sampling with replacement;
    use `sampling_method="without_replacement"` to include each source row at most once.
 2. Construct and standardise the generating score on the sampled rows
@@ -28,9 +25,7 @@ selections.
 ## Correlation and missingness
 
 Complete-row resampling samples from the joint empirical distribution, preserving relationships
-between features and missingness patterns. The source population determines which combinations
-are possible in the simulation. The signal and outcome specification determine the association
-being studied.
+between features and missingness patterns.
 
 ## Training, validation and test samples
 
@@ -71,14 +66,17 @@ When `CorrelatedTruth` uses one generating feature per group and you omit
 has observed variation in the training pool. A constant or entirely missing
 choice raises `ValueError`. All samples use the same chosen features.
 
-PyPlasmode scales the generating score and calibrates outcomes across all sampled
-rows together. Changing the evaluation covariates changes the inputs to that
-calibration. Fit model preprocessing on training data. For a transfer study with
-a fixed effect ratio, pass that ratio explicitly and call `generate` separately
-for each population. Each call still recalibrates the baseline and scales the
-score on its own sampled rows. To keep the whole generating model fixed, apply
-the same feature transforms, score scaling and baseline outside per-cohort
-calibration. See [AUC calibration](calibration.md#what-is-solved).
+PyPlasmode scales the generating score and calibrates the outcome across the training,
+validation and evaluation rows together, so all three share one generating model. Changing
+the evaluation rows therefore changes that model's scaling and baseline.
+
+To compare populations, call `generate` once per population with the same effect, such as
+the same odds ratio. Each call scales the score and calibrates the baseline on its own rows.
+PyPlasmode has no option to hold the scaling and baseline fixed across populations: to do
+that, compute the score and draw the outcomes in your own code.
+See [AUC calibration](calibration.md#what-is-solved).
+
+This is separate from your model's preprocessing, which you fit on the training sample only.
 
 ## Signal construction
 
@@ -158,7 +156,13 @@ print(summary.replicate_count, summary.failure_count)  # 3 0
 
 ## Discrimination and repeated selections
 
-The [metrics guide](metrics.md) defines selection stability, consensus rankings and AUC (area
-under the ROC curve) under censoring. The [calibration guide](calibration.md) explains how a
-target AUC of the generating score determines an odds or hazard ratio. Expected and realised AUC
-are reported separately. With few observed events, a single draw gives an imprecise AUC estimate.
+Set `target_auc` on a binary or time-to-event outcome to fix the AUC (area under the ROC
+curve) of the generating score in place of an odds or hazard ratio
+([AUC calibration](calibration.md)). `outcome.calibration.oracle_auc` is the AUC expected
+before outcomes are drawn. The AUC realised in one draw differs from it by sampling variation,
+most when events are few; measure it by scoring the generating score (`truth.signal`) against
+the drawn outcomes.
+
+For feature selections repeated across refits, `pyplasmode.metrics` provides
+`selection_stability` and `consensus_ranking`; for AUC under censoring it provides
+`cumulative_dynamic_auc` ([Metrics](metrics.md)).

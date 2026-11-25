@@ -51,8 +51,7 @@ variation. **Recovery** is the fraction of the generating features in a selectio
 5. Evaluate predictions and [feature recovery](evaluation.md), including tied importance scores.
 6. Repeat with independent seeds and summarise the paired results.
 
-Compare methods on the same generated samples. Vary the signal, effect size, sample size, or
-censoring to explore the conditions that matter for your application. See [Methods](methods.md).
+Compare methods on the same generated samples. See [Methods](methods.md).
 
 ## Return types
 

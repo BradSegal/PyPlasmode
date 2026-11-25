@@ -19,8 +19,7 @@ in `X` but cannot be generating features; see
 per column. It can contain measured or synthetic data. Encode non-numeric variables before
 passing them to the library, and choose a signal appropriate to that encoding.
 
-PyPlasmode evaluates procedures under a chosen feature distribution, signal and outcome model.
-Choose these to reflect your application. The built-in outcomes include binary, continuous,
+The built-in outcomes include binary, continuous,
 count and ordinal responses, plus single-event survival with independent censoring. Competing
 risks, recurrent events, longitudinal outcomes, informative censoring and causal interventions
 require a different outcome generator.

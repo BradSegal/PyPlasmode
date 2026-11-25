@@ -12,8 +12,8 @@ Use `generate` for one sample or `partition_population` followed by
 `generate_partitioned` to keep source rows separate between training, validation and test. Access
 `outcome.values` for binary, continuous and count outcomes, `outcome.codes` for
 ordinal outcomes, and `outcome.time` plus `outcome.event` for survival outcomes.
-Survival times are in days; latent event and censoring times beyond administrative
-follow-up are represented by infinity.
+Survival times are in days; latent event and censoring times that do not occur by the last
+risk point are represented by infinity.
 
 ## Populations and sampling
 
@@ -41,8 +41,8 @@ follow-up are represented by infinity.
 
 ## Tied selections and matched references
 
-Use `nominations` to split cutoff slots among tied scores and compare recovery with
-matched random selection.
+These functions split cutoff slots among tied scores and compare recovery with
+matched random selection. Import them from `pyplasmode`.
 
 ::: pyplasmode.nominations
 

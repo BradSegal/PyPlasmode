@@ -5,8 +5,8 @@ to guide a coding agent through simulation design, execution and interpretation,
 signal and recovery choices and common pitfalls.
 It follows the open skill layout: a `SKILL.md` file with a name, a description of when to use
 it and the instructions, and a `references` folder with complete recipes. If your coding agent
-supports this skill format, copy the folder to its skill directory. With an agent that has file access, ask it to read `SKILL.md` and its linked recipes. Running the examples needs a
-supported Python version with PyPlasmode installed.
+supports this skill format, copy the folder to its skill directory. With an agent that has file
+access, ask it to read `SKILL.md` and its linked recipes.
 
 Recipes cover repeating a study and comparing two procedures, correlated features with group
 recovery, how recovery varies with sample size, time-to-event outcomes with censoring, and

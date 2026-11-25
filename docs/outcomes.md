@@ -8,7 +8,7 @@ features.
 ## Shared example population
 
 The examples use four synthetic features, with A and B as the generating features. Run the
-setup once, then run the outcome examples. Each outcome has one response per sampled row.
+setup once, then run the outcome examples.
 
 ```python
 import numpy as np
@@ -41,11 +41,10 @@ ratio from a target AUC (area under the ROC curve) of the generating score; see 
 ```python
 binary = simulate(ppm.BinaryOutcome(probability=0.15, odds_ratio=2.0))
 print(binary.values.shape, round(float(binary.values.mean()), 3))
-# (10000,) 0.152
+# (10000,) 0.152: one label per row; event fraction against a target of 0.15
 ```
 
-This draw gives 10,000 zero/one labels and an event fraction of 0.152 (target 0.15). Event odds double for
-a one-standard-deviation increase in the generating score.
+Event odds double for a one-standard-deviation increase in the generating score.
 
 ## Continuous
 
@@ -56,11 +55,11 @@ At least two rows are required. Use `effect=0` or `variance_explained=0` with a 
 ```python
 continuous = simulate(ppm.ContinuousOutcome(mean=100, standard_deviation=15, effect=5))
 print(round(float(continuous.values.mean()), 2), round(float(continuous.values.std()), 2))
-# 99.92 14.83
+# 99.92 14.83: mean and standard deviation against targets of 100 and 15
 ```
 
-The mean is 99.92 and the standard deviation is 14.83 (targets 100 and 15, in measurement units). A one-standard-deviation increase in the generating score raises its
-conditional mean by five units.
+A one-standard-deviation increase in the generating score raises the conditional mean by five
+units of the measurement.
 
 ## Counts
 
@@ -83,15 +82,14 @@ differences in expected counts across rows.
 ```python
 counts = simulate(ppm.CountOutcome(rate=3, rate_ratio=1.5, variance_to_mean=2))
 print(counts.values.dtype, round(float(counts.values.mean()), 3))
-# int64 2.975
+# int64 2.975: mean count per exposure unit against a target of 3
 
 count_spec = ppm.CountOutcome(rate=3, rate_ratio=1.5, exposure=(1.0, 2.0))
 varying_counts = ppm.generate_outcome(count_spec, np.array([-1.0, 1.0]), np.random.default_rng(7))
 print(varying_counts.exposure, varying_counts.values)  # [1. 2.] [3 5]
 ```
 
-The first draw averages 2.975 counts per exposure unit, against a target of
-three. The second draw assigns one year to the first row and two to the second.
+The second draw assigns one year to the first row and two to the second.
 
 ## Ordered categories
 
@@ -109,10 +107,10 @@ ordinal = simulate(
     )
 )
 print(ordinal.categories, np.bincount(ordinal.codes) / len(ordinal.codes))
-# ('low', 'middle', 'high') [0.2524 0.4973 0.2503]
+# ('low', 'middle', 'high') [0.2524 0.4973 0.2503]: against targets of 0.25, 0.50, 0.25
 ```
 
-The output stores category names and integer codes 0, 1 and 2. The realised proportions are 0.2524, 0.4973 and 0.2503 (targets 0.25, 0.50 and 0.25).
+The output stores category names and integer codes 0, 1 and 2.
 
 ## Time to event
 

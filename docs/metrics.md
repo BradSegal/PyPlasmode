@@ -45,7 +45,7 @@ is below one even if every smaller selection is contained in every larger one.
 
 ## Consensus and rank-biased overlap
 
-Use `consensus_ranking(features, scores, depth=...)` to order features across
+Use `consensus_ranking(feature_ids, scores, depth=...)` to order features across
 refits. It sorts by average selection probability at that depth, highest first.
 It breaks ties using the median rank among refits that gave the feature any
 membership. Within each refit, ranks start at 1 and ties share the average of
@@ -54,12 +54,12 @@ their positions across all features. A feature never selected has median rank
 
 `consensus.ranking` lists feature names in sorted order, alphabetically when the
 evidence ties. `consensus.ranks`, `inclusion_probabilities` and
-`median_selected_ranks` follow the order of the input `features`. Features with
+`median_selected_ranks` follow the order of the input `feature_ids`. Features with
 equal evidence have equal numerical ranks.
 
 `rank_biased_overlap` (RBO) measures how much two rankings agree near the top.
 Pass complete rank vectors for the same features in the same order, such as
-the `ranks` from two consensus results built with identical `features`. Lower
+the `ranks` from two consensus results built with identical `feature_ids`. Lower
 ranks are better. Convert importance scores with
 `scipy.stats.rankdata(-scores, method="average")` for a NumPy array of scores.
 
@@ -133,7 +133,7 @@ default tie rule of [scikit-survival](https://scikit-survival.readthedocs.io/en/
 
 Use the same time unit throughout. For ten years in days, use
 `horizon=ppm.years(10).days`. The horizon must be finite and positive, below
-`max(training_time)), and below at least one evaluation time. See
+`max(training_time)`, and below at least one evaluation time. See
 [calibration](calibration.md) to generate longer follow-up. For landmarking,
 keep only rows observed past the landmark in both samples, then subtract the
 landmark from their times and the absolute horizon.

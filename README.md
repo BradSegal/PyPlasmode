@@ -107,8 +107,8 @@ The fit uses fixed hyperparameters. Use the validation sample for tuning.
 Start with [Methods](https://bradsegal.github.io/PyPlasmode/methods/), then choose a [signal](https://bradsegal.github.io/PyPlasmode/truths/) and
 [outcome](https://bradsegal.github.io/PyPlasmode/outcomes/). The [evaluation guide](https://bradsegal.github.io/PyPlasmode/evaluation/) defines each result.
 The [validation example](https://bradsegal.github.io/PyPlasmode/validation/) checks the generators and recovery metrics against
-known values and reference estimators. The [documentation](https://bradsegal.github.io/PyPlasmode/)
-also holds the API reference.
+known values and reference estimators. The [API reference](https://bradsegal.github.io/PyPlasmode/api/)
+lists every signature and result field.
 
 The executable [quickstart](https://github.com/BradSegal/PyPlasmode/blob/main/examples/quickstart.py),
 [survival example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/survival.py),

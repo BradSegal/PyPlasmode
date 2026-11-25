@@ -106,10 +106,10 @@ to `[-700, 700]` before exponentiating.
 
 ## Validation
 
-The statistical suite checks the expected AUC to absolute tolerance `1e-7`.
+The [test suite](validation.md#test-suite) checks the expected AUC to absolute tolerance `1e-7`.
 Generated binary AUCs are checked within 0.025 across probabilities 0.02, 0.2
 and 0.5 and targets 0.5, 0.6, 0.75 and 0.9, using 80,000 synthetic observations
 per cell. Survival checks use 120,000 observations, event risks 0.005, 0.05 and
 0.2, censoring risks 0, 0.05 and 0.3, and targets 0.5, 0.61, 0.72 and 0.79;
-the realised IPCW tolerance is 0.035. These are reproducible simulation checks,
+the realised AUC from `cumulative_dynamic_auc` is checked within 0.035. These are reproducible simulation checks,
 not a guarantee of this accuracy for a user's smaller sample.
