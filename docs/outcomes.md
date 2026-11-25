@@ -1,13 +1,14 @@
 # Outcomes in observable units
 
-A simulated outcome should look like the outcome in your setting: a 15% event rate, a mean blood
-pressure of 120, a 10% risk at five years. You therefore describe it in those observable units,
-and PyPlasmode solves for the model parameters, such as an intercept, that produce them. Each
-outcome takes two kinds of setting: targets for the outcome's level, and an effect for how
-strongly the generating score acts on it, which a target AUC can replace for binary and
-time-to-event outcomes. Every effect is per standard deviation of the
-generating score, the number computed for each row from the generating features. The solved
-parameters are stored with the outcome in `outcome.calibration`.
+An outcome specification answers the question "what should the outcome look like, and how strongly
+does the generating score act on it?". So that it looks like the outcome in your setting, you
+describe it in observable units, such as a 15% event rate or a 10% risk at five years, and
+PyPlasmode solves for the model parameters, such as an intercept, that produce them.
+
+Each class takes targets for the outcome's level and one effect, per standard deviation of the
+generating score (the number computed for each row from the generating features); a target AUC
+can replace the effect for binary and time-to-event outcomes. The solved parameters are stored in
+`outcome.calibration`.
 
 ## Shared example population
 
@@ -42,12 +43,12 @@ probability averaged over rows, and one effect on the scale your field reports:
 - `odds_ratio` multiplies the odds of the event (a logistic model).
 - `risk_ratio` multiplies the event probability (a log-risk model).
 - `risk_difference` adds to the event probability (an identity-risk model).
+- `target_auc` sets how well the score separates cases from controls, and PyPlasmode solves for
+  the odds ratio ([AUC calibration](calibration.md)).
 
 A risk ratio or risk difference can push the probability of the highest- or lowest-scoring rows
 outside 0 to 1, and generation then raises `CalibrationError`; use a smaller effect or an odds
-ratio, which keeps every probability in range whatever the score. To set how well the score
-separates cases from controls instead, set `target_auc` and PyPlasmode solves for the odds ratio
-([AUC calibration](calibration.md)).
+ratio, which keeps every probability in range.
 
 ```python
 binary = simulate(ppm.BinaryOutcome(probability=0.15, odds_ratio=2.0))
@@ -57,25 +58,24 @@ print(round(binary.calibration["intercept"], 2))
 # -1.89
 ```
 
-The outcome holds one label per row, with an event fraction close to the 15% target. The
-intercept is the log-odds value calibration found to make the row probabilities average 15%.
+The event fraction, 0.152, is close to the 15% target; the intercept is the log-odds value that
+makes the row probabilities average 15%.
 
 ## Continuous
 
-Use `ContinuousOutcome` for a measured quantity such as blood pressure. Set its `mean` and
-`standard_deviation`, and one of two effects:
+Use `ContinuousOutcome` for a measured quantity such as blood pressure. Set `mean`,
+`standard_deviation` and one effect: `effect`, the change in the mean per one-standard-deviation
+increase in the score, in the outcome's units; or `variance_explained`, the share of the
+outcome's variance due to the score. With `standard_deviation=15`, `effect=5` and
+`variance_explained=1/9` give the same outcome, because (5/15)² = 1/9.
 
-- `effect`, the change in the mean for each one-standard-deviation increase in the score, when
-  you think in the outcome's units. Its size must be smaller than `standard_deviation`, so that
-  some variance is left for the Gaussian noise that supplies the rest.
-- `variance_explained`, the share of the outcome's variance due to the score (at least 0 and
-  below 1), when you think in terms of how predictable the outcome is. It always gives a
-  positive effect; use `effect` for a negative one.
-
-With a null signal, set the effect to 0:
-a constant score cannot explain any variance, and any other value raises
-`OutcomeSpecificationError`. At least two rows are needed, because a
-standard deviation cannot be checked on one.
+- **`effect` must be smaller than `standard_deviation` in size**, to leave variance for the
+  Gaussian noise that supplies the rest.
+- **`variance_explained` is at least 0 and below 1, and gives a positive effect**; use `effect`
+  for a negative one.
+- **With a null signal the effect must be 0**, because a constant score cannot explain any
+  variance; any other value raises `OutcomeSpecificationError`.
+- **At least two rows are needed**, because a standard deviation cannot be checked on one.
 
 ```python
 continuous = simulate(ppm.ContinuousOutcome(mean=100, standard_deviation=15, effect=5))
@@ -83,27 +83,25 @@ print(round(float(continuous.values.mean()), 2), round(float(continuous.values.s
 # 99.92 14.83
 ```
 
-The sample's mean and standard deviation are close to their targets of 100 and 15. The
-conditional mean rises by five units for each one-standard-deviation increase in the
-score, so the score explains (5/15)² = 11% of the variance.
+The sample's mean and standard deviation are close to their targets of 100 and 15.
 
 ## Counts
 
-Use `CountOutcome` for counts over a period of follow-up, such as hospital admissions. Set
-`rate` to the expected total count divided by the total exposure, for example admissions per
-person-year. A `rate_ratio` of 1.5 raises the expected rate by 50% for each one-standard-deviation
-increase in the score.
+Use `CountOutcome` for counts over a period of follow-up, such as hospital admissions. Set:
 
-`exposure` is each row's follow-up, in the units of the rate's denominator: years for a rate per
-year. Give one value for all rows (default 1.0) or one per simulated row, not per source row:
-`sample_size` values for `generate`, or one per row of the three samples, in training, validation
-and test order, for `generate_partitioned`. `counts.exposure` returns the value used for each row.
-
-`variance_to_mean` sets how variable the counts are among rows with the same score and exposure.
-The default of 1 gives Poisson counts, whose variance equals their expected count. A value above
-1 gives overdispersed, negative-binomial counts (the NB1 form), whose variance is that multiple of
-the expected count. Real counts are often overdispersed, because people
-with the same measurements still differ in ways the measurements miss.
+- `rate`, the expected total count divided by the total exposure, such as admissions per
+  person-year;
+- `rate_ratio`; 1.5 raises the expected rate by 50% per one-standard-deviation increase in the
+  score;
+- `exposure`, each row's follow-up in the rate's denominator (years for a rate per year): one
+  value for all rows (default 1.0), or one per simulated row, not per source row (in training,
+  validation and test order for `generate_partitioned`). `counts.exposure` returns the values
+  used;
+- `variance_to_mean`, how variable counts are among rows with the same score and exposure. The
+  default of 1 gives Poisson counts, whose variance equals their expected count; a value above 1
+  gives negative-binomial counts (the NB1 form) with variance that multiple of the expected
+  count. Real counts are often overdispersed, because people with the same measurements still
+  differ in ways the measurements miss.
 
 ```python
 counts = simulate(ppm.CountOutcome(rate=3, rate_ratio=1.5, variance_to_mean=2))
@@ -117,20 +115,19 @@ varying_counts = ppm.generate_outcome(count_spec, np.array([-1.0, 1.0]), np.rand
 print(varying_counts.exposure, varying_counts.values)  # [1. 2.] [3 5]
 ```
 
-The first draw gives integer counts with a mean close to the target of 3 per unit of exposure.
-Their variance is larger than twice the mean, because `variance_to_mean` applies
-among rows with the same score, and the score also makes expected counts differ between rows.
-The second draw calls `generate_outcome`, which draws outcomes from a score you supply without
-sampling rows, here two rows with scores −1 and 1 and exposures of one and two years.
+The first draw's mean is close to the target of 3. Its variance is more than twice the mean,
+because `variance_to_mean` applies among rows with the same score, and the score also makes
+expected counts differ between rows. The second draw uses `generate_outcome`, which draws from a
+score you supply without sampling rows: two rows with scores −1 and 1 and exposures of one and two
+years.
 
 ## Ordered categories
 
 Use `OrdinalOutcome` for ordered categories such as mild, moderate and severe disease. Set
 `categories` from lowest to highest, `probabilities`, the share of rows in each in the same
-order, and a `common_odds_ratio`.
-PyPlasmode uses a proportional-odds model: at every boundary between categories, the odds of
-being above it are multiplied by the same ratio for each one-standard-deviation increase in the
-score. A ratio above one therefore moves rows with a higher score towards the higher
+order, and a `common_odds_ratio`. In this proportional-odds model, the odds of being above every
+boundary between categories are multiplied by the same ratio for each one-standard-deviation
+increase in the score, so a ratio above one moves rows with a higher score towards the higher
 categories. Calibration sets the boundaries so that the shares match your targets.
 
 ```python
@@ -146,29 +143,24 @@ print(ordinal.categories, np.bincount(ordinal.codes) / len(ordinal.codes))
 ```
 
 The outcome stores the category names and an integer code per row, 0 for the lowest category.
-The shares of rows are close to their targets.
 
 ## Time to event
 
-Use `TimeToEventOutcome` for the time until an event such as a diagnosis, when not every
-person is followed until it happens. Set the cumulative event risk at one or more times, built
-with `days(...)` or `years(...)`. Risks of 10% at five years and 25% at ten years, for example,
-let the baseline event rate change after year five. PyPlasmode holds each row's event rate (its
-hazard) constant between consecutive times and matches the average risk at each time (a
-piecewise-exponential model).
+Use `TimeToEventOutcome` for the time until an event such as a diagnosis, when not everyone is
+followed until it happens. Set the cumulative event risk at one or more times, built with
+`days(...)` or `years(...)`, and a `hazard_ratio` per standard deviation of the score or a
+`target_auc` ([AUC calibration](calibration.md)). Each row's event rate (its hazard) is constant
+between consecutive risk times, and the average risk matches your target at each time (a
+piecewise-exponential model): risks of 10% at five years and 25% at ten let the baseline rate
+change after year five.
 
-Set the effect as a `hazard_ratio` per standard deviation of the score, or set `target_auc`
-([AUC calibration](calibration.md)). Three further settings shape follow-up:
-
-- **Risk targets exclude censoring.** Each event risk is the risk in the absence of censoring,
-  so your targets do not depend on how much follow-up is lost.
-- **Censoring is optional and independent.** `censoring_risks` gives the cumulative risk of
-  losing a person to follow-up, at the same times as the event risks. Censoring does not depend
-  on the score or on the event, but it hides later events more often, because they have longer
-  to be censored.
-- **Follow-up ends at the last risk time** unless you set a later `administrative_horizon`, which
-  follows people still event-free for longer. The event and censoring rates are zero after the
-  last risk time, so to have events after it, add a later risk time with a higher risk.
+- **Risk targets exclude censoring**, so they do not depend on how much follow-up is lost.
+- **Censoring is optional and independent.** `censoring_risks` gives the cumulative risk of loss
+  to follow-up at the same times. It does not depend on the score or the event, but hides later
+  events more often, because they have longer to be censored.
+- **Follow-up ends at the last risk time** unless you set a later `administrative_horizon`. Event
+  and censoring rates are zero after the last risk time, so for events after it, add a later risk
+  time with a higher risk.
 
 ```python
 survival = simulate(
@@ -184,11 +176,11 @@ print(round(float(survival.event.mean()), 3))
 # 0.235
 ```
 
-Fit survival models to `time`, the follow-up in days, and `event`, which is true when the event was
-observed. The observed event fraction is below the 25% risk at ten years, because censoring ends
-some people's follow-up before their event. The drawn times before censoring, `latent_event_time`
-and `censoring_time`, are kept for checking the simulation; a time is infinite when it falls after
-the last risk time.
+Fit survival models to `time`, the follow-up in days, and `event`, true when the event was
+observed. The event fraction, 0.235, is below the 25% risk at ten years, because censoring ends
+some follow-up before the event. The drawn times before censoring, `latent_event_time` and
+`censoring_time`, are kept for checking the simulation; a time is infinite when it falls after the
+last risk time.
 
 ## Calibration equations
 
