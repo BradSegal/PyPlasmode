@@ -2,7 +2,13 @@
 
 ## Unreleased
 
-Documentation only. No executable code changed.
+One addition to the graph evaluator; otherwise documentation. Existing results are unchanged.
+
+### Added
+
+- `evaluate_graph_region` reports `weighted_edge_coverage`: the summed weight of the region's
+  edges with both ends selected, divided by the summed weight of all the region's edges. Edge
+  weights were stored but not used before. `edge_coverage` still counts every edge equally.
 
 ### Changed
 
@@ -26,7 +32,7 @@ Documentation only. No executable code changed.
   generating score; in a finite sample the difference can take either sign.
 - The API page said latent survival times beyond administrative follow-up are infinite; they are
   infinite when the event does not occur by the last risk point.
-- Graph edges were described as weighted in evaluation; every edge counts equally.
+- Graph edges were described as weighted in evaluation, but no function used the weight.
 - Generation was described as sampling complete rows; it draws whole rows, missing values
   included.
 - The realisation tolerances for ordered categories and for survival event and censoring risks

@@ -248,33 +248,67 @@ The call raises `ValueError` unless the signals have:
 
 ## Graph regions
 
-A graph region is a set of features you name within a `FeatureGraph`: for example, the members
-of one pathway in an interaction network. `evaluate_graph_region` measures how much of the
-region lies in the top `depth` features of a ranking of the graph's nodes.
+A graph region answers one question: when a signal lives in a connected part of a network, did
+the top features land on connected members of it, or only on scattered ones?
 
-- `node_coverage` is the fraction of the region's features that are selected.
-- `edge_coverage` is the fraction of the region's edges with both ends selected. Only edges
-  joining two features of the region count, and `target_edge_count` is their number.
+A `FeatureGraph` is the network: features as nodes, and pairs of related features as edges, for
+example proteins that bind each other. An edge has no direction, and can carry a `weight` for
+the strength of the relationship (default 1.0). A *region* is the part of the network the signal
+concerns, such as one pathway: a set of nodes you name.
+
+`evaluate_graph_region(ranking, graph, region=..., depths=...)` takes a ranking of all the
+graph's nodes. For the top `depth` features it:
+
+1. counts the region's nodes that are selected, and divides by the region's size
+   (`node_coverage`);
+2. finds the edges that join two nodes of the region (`target_edge_count`);
+3. counts those edges with both ends selected, and divides by their number (`edge_coverage`);
+4. sums the weights of those recovered edges, and divides by the summed weight of the region's
+   edges (`weighted_edge_coverage`).
+
+Two methods each put two members of a four-protein signalling chain in their top three:
 
 ```python
 import pyplasmode as ppm
 
 network = ppm.FeatureGraph(
-    nodes=("A", "B", "C", "D", "E"),
-    edges=(ppm.FeatureEdge("A", "B"), ppm.FeatureEdge("C", "D")),
+    nodes=("EGFR", "GRB2", "SOS1", "KRAS", "TP53", "MDM2", "MYC"),
+    edges=(
+        ppm.FeatureEdge("EGFR", "GRB2", weight=0.9),
+        ppm.FeatureEdge("GRB2", "SOS1", weight=0.3),
+        ppm.FeatureEdge("SOS1", "KRAS", weight=0.3),
+        ppm.FeatureEdge("TP53", "MDM2", weight=0.8),
+    ),
 )
-node_ranking = ("A", "B", "E", "C", "D")
-region_result = ppm.evaluate_graph_region(
-    node_ranking, network, region=("A", "B", "C", "D"), depths=(2,)
-)
-print(region_result.at_depth[0].node_coverage)  # 0.5: A and B of four features
-print(region_result.at_depth[0].edge_coverage)  # 0.5: A-B of two edges
+pathway = ("EGFR", "GRB2", "SOS1", "KRAS")
+method_a = ("EGFR", "GRB2", "TP53", "SOS1", "KRAS", "MDM2", "MYC")
+method_b = ("EGFR", "SOS1", "TP53", "GRB2", "KRAS", "MDM2", "MYC")
+
+region_result = ppm.evaluate_graph_region(method_a, network, region=pathway, depths=(3,))
+other_result = ppm.evaluate_graph_region(method_b, network, region=pathway, depths=(3,))
+for row in (region_result.at_depth[0], other_result.at_depth[0]):
+    print(row.node_coverage, round(row.edge_coverage, 2), round(row.weighted_edge_coverage, 2))
+# 0.5 0.33 0.6
+# 0.5 0.0 0.0
 ```
 
-A region whose features share no edges has no edge coverage to measure: `edge_coverage` is
-`None` and `target_edge_count` is 0. When you average over regions, leave these out of the
-edge average and report how many were left out. Counting them as zero would understate
-recovery.
+| Top three | Node coverage | Edge coverage | Weighted edge coverage |
+| --- | --- | --- | --- |
+| Method A: EGFR, GRB2, TP53 | 0.50 (2 of 4) | 0.33 (1 of 3 edges) | 0.60 (0.9 of 1.5) |
+| Method B: EGFR, SOS1, TP53 | 0.50 (2 of 4) | 0.00 | 0.00 |
+
+Both methods found half the pathway. Method A found an interacting pair, and the strongest
+one. Method B found two members that do not touch. Node coverage cannot tell them apart; edge
+coverage can. The TP53 to MDM2 edge is outside the region, so it never counts.
+
+Two rules:
+
+- **A region with no internal edges has no edge coverage.** Both edge figures are `None` and
+  `target_edge_count` is 0. When you average over regions, leave these out and report how many
+  were left out. Counting them as zero would understate recovery.
+- **Use the weighted figure only when the weights measure what matters to the signal.** If they
+  are confidence scores from an annotation database, read `edge_coverage`, or drop
+  low-confidence edges before building the graph.
 
 ## Ranking stability
 

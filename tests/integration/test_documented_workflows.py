@@ -45,6 +45,7 @@ def test_documented_workflow(page: str) -> None:
         assert namespace["alignment"].unmapped == ("G",)
     elif page == "evaluation":
         assert namespace["result"].at_depth[0].recall == 0.5
-        assert namespace["region_result"].at_depth[0].edge_coverage == 0.5
+        assert namespace["region_result"].at_depth[0].node_coverage == 0.5
+        assert namespace["region_result"].at_depth[0].weighted_edge_coverage == pytest.approx(0.6)
     elif page == "README":
         assert namespace["recovery"].at_depth[0].recall == 1.0

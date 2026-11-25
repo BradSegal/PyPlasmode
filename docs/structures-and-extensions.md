@@ -10,8 +10,8 @@ you supply it from your analysis or an external resource:
   the groups a correlated signal records from them.
 - `FeatureGraph` holds features linked by undirected edges, such as a similarity or interaction
   network. `evaluate_graph_region` scores how much of a region of the graph a selection covers
-  ([Graph regions](evaluation.md#graph-regions)). An edge can carry a weight, but no evaluator
-  uses it: every edge counts equally.
+  ([Graph regions](evaluation.md#graph-regions)). An edge can carry a weight for the strength
+  of the relationship; the evaluator reports coverage with and without it.
 
 An annotation resource often names features differently from your matrix, or lists features you
 did not measure. A signal built from a group with an unmeasured member raises `ValueError`, so
