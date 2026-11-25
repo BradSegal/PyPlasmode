@@ -32,7 +32,7 @@ class Duration:
     """A positive time interval, stored in days.
 
     Attributes:
-        days: Finite length in days.
+        days: Finite positive length.
         label: Non-empty display label.
     """
 
@@ -47,7 +47,7 @@ class Duration:
 
 
 def duration(value: float, unit: Literal["days", "weeks", "years"]) -> Duration:
-    """Create a positive duration in days, weeks or years."""
+    """Convert a positive duration to days (7 per week, 365.25 per year)."""
     factors = {"days": 1.0, "weeks": 7.0, "years": 365.25}
     if not np.isfinite(value) or value <= 0.0:
         raise OutcomeSpecificationError("duration value must be finite and positive")
@@ -57,12 +57,12 @@ def duration(value: float, unit: Literal["days", "weeks", "years"]) -> Duration:
 
 
 def days(value: float) -> Duration:
-    """Create a duration measured in days."""
+    """Create a positive duration from a day count."""
     return duration(value, "days")
 
 
 def years(value: float) -> Duration:
-    """Create a duration measured in years using 365.25 days per year."""
+    """Convert a positive year count using 365.25 days per year."""
     return duration(value, "years")
 
 
@@ -113,7 +113,8 @@ class ContinuousOutcome:
     Attributes:
         mean: Finite mean in outcome units.
         standard_deviation: Positive standard deviation in outcome units.
-        effect: Change in the mean per score SD, with magnitude below the outcome SD.
+        effect: Change in the mean per standard deviation of the generating score. Its magnitude
+            must be smaller than `standard_deviation`.
         variance_explained: Variance fraction in [0, 1), giving a non-negative effect.
     """
 
@@ -144,13 +145,13 @@ class ContinuousOutcome:
 
 @dataclass(frozen=True, slots=True)
 class CountOutcome:
-    """Specify counts per unit exposure, driven by a feature score.
+    """Specify event counts with an exposure-adjusted rate that depends on the generating score.
 
     Attributes:
         rate: Expected total count divided by total exposure, finite and positive.
         rate_ratio: Positive finite rate multiplier per score standard deviation.
         exposure: Finite positive amounts, shared or one per row, in the rate denominator units.
-        variance_to_mean: Conditional variance divided by mean, at least one.
+        variance_to_mean: Finite conditional variance-to-mean ratio, at least one.
 
     A ratio of one gives Poisson counts. A higher ratio gives overdispersed counts (NB1).
     """
@@ -250,8 +251,9 @@ class TimeToEventOutcome:
         auc_horizon: Time at which AUC is calibrated or reported, strictly before the cutoff.
         administrative_horizon: Follow-up cutoff. Defaults to the last event-risk time.
 
-    The cutoff must cover every event-risk point. AUC uses uncensored event risks. Its default
-    horizon is the last risk point before the cutoff, or half the cutoff if there is none.
+    The cutoff must cover all event-risk points. By default, AUC is evaluated at the last
+    event-risk time strictly before the cutoff, or at half the cutoff if none precedes it.
+    AUC uses the model's event probabilities with censoring removed.
     """
 
     event_risks: tuple[RiskPoint, ...]
@@ -325,10 +327,12 @@ class CalibrationCheck:
     Attributes:
         name: Summary name.
         target: Requested value.
-        expected: Model expectation on the calibration rows.
+        expected: Model-implied population summary over the calibration rows, before sampling
+            outcomes.
         realized: Summary from the simulated draw.
         tolerance: Maximum absolute difference from target, in the summary's units.
-        within_tolerance: Whether the draw met that bound. Failed checks raise `RealizationError`.
+        within_tolerance: Whether the draw met that bound. After calibration, a draw outside
+            the bound raises `RealizationError`, so returned checks have this flag set to `True`.
     """
 
     name: str
@@ -345,7 +349,7 @@ class CalibrationResult:
 
     Attributes:
         family: Outcome model family.
-        parameters: Parameter names and values, also available through `parameter_dict`.
+        parameters: Parameter names and values.
         checks: Comparisons of targets, model expectations and simulated summaries.
         oracle_auc: Expected AUC of model-implied risk for binary or survival outcomes.
         target_auc: Requested expected AUC, or `None` if no AUC was requested.
@@ -363,7 +367,7 @@ class CalibrationResult:
 
     @property
     def parameter_dict(self) -> dict[str, ParameterValue]:
-        """Return a fresh name-to-value mapping of the solved parameters."""
+        """Return a fresh dictionary of model parameters."""
         return dict(self.parameters)
 
     def __getitem__(self, name: str) -> ParameterValue:
@@ -457,7 +461,7 @@ class SurvivalGeneratedOutcome:
         censoring_time: Days to independent censoring, or infinity if none occurred.
         calibration: Model parameters, risk checks and expected AUC.
 
-    The arrays are read-only and have one entry per input row.
+    The read-only arrays follow input row order.
     """
 
     time: NDArray[np.float64]
@@ -934,11 +938,11 @@ def generate_outcome(
     signal: NDArray[np.float64],
     rng: np.random.Generator,
 ) -> GeneratedOutcome:
-    """Match the model to the targets and draw one outcome per score.
+    """Calibrate the model and draw one outcome per input row.
 
     Args:
-        signal: Finite non-empty score vector, rescaled to mean zero and unit population SD.
-            Constant scores are replaced with zeros.
+        signal: Finite, non-empty generating-score vector in row order. Rescaled to mean zero and
+            unit population standard deviation, or replaced with zeros if constant.
 
     Returns:
         Read-only outcome arrays and model diagnostics. Survival times are in days.
@@ -947,7 +951,8 @@ def generate_outcome(
         OutcomeSpecificationError: Exposure vector length differs from the score length, or Gaussian
             generation has fewer than two rows or a non-zero effect with a constant score.
         CalibrationError: The model cannot use the score or attain the requested targets.
-        RealizationError: Simulated summaries fail a sampling diagnostic.
+        RealizationError: Simulated summaries exceed their sampling tolerance.
+        TypeError: The outcome specification type is unsupported.
     """
     z = _signal(signal)
     if isinstance(spec, BinaryOutcome):

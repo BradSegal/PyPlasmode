@@ -34,8 +34,9 @@ class RankingEvaluation:
     """Results for finding exact target features in a ranking.
 
     Attributes:
-        first_relevant_rank: One-based position of the first target.
-        at_depth: Counts, precision and recall by cutoff.
+        first_relevant_rank: One-based position of the first exact target. `evaluate_ranking`
+            always sets it because it requires targets and a complete ranking.
+        at_depth: Counts, precision, recall and false discovery fraction in depth order.
     """
 
     first_relevant_rank: int | None
@@ -44,7 +45,7 @@ class RankingEvaluation:
 
 @dataclass(frozen=True, slots=True)
 class GroupAtDepth:
-    """Results for finding target groups among the leading features of a ranking.
+    """Group recovery at one depth.
 
     Attributes:
         depth: Number of leading features selected.
@@ -61,7 +62,7 @@ class GroupAtDepth:
 
 @dataclass(frozen=True, slots=True)
 class GroupEvaluation:
-    """Results for finding at least one member of each target group.
+    """Group recovery across depths.
 
     Attributes:
         at_depth: Group counts and recall by cutoff.
@@ -89,7 +90,7 @@ class ModuleAtDepth:
 
 @dataclass(frozen=True, slots=True)
 class ModuleEvaluation:
-    """Results for finding weighted target features in a ranking.
+    """Weighted recovery across depths.
 
     Attributes:
         at_depth: Counts and absolute-weight coverage by cutoff.
@@ -118,7 +119,7 @@ class GraphRegionAtDepth:
 
 @dataclass(frozen=True, slots=True)
 class GraphRegionEvaluation:
-    """Results for finding a target set of graph nodes and its internal edges in a ranking.
+    """Graph region recovery across depths.
 
     Attributes:
         at_depth: Node and edge coverage by cutoff.
@@ -134,7 +135,7 @@ class SignalReconstructionEvaluation:
     Attributes:
         selected_feature_count: Number of features supplied to the model.
         evaluation_count: Number of held-out rows.
-        r_squared: R-squared for predicting the generating score on held-out rows.
+        r_squared: Held-out R-squared.
         root_mean_squared_error: Root mean squared prediction error in generating-score units.
     """
 
@@ -146,7 +147,7 @@ class SignalReconstructionEvaluation:
 
 @dataclass(frozen=True, slots=True)
 class PredictionEvaluation:
-    """One standard prediction metric over supplied outputs."""
+    """Metric name, metric value and number of observations scored."""
 
     metric: str
     value: float
@@ -155,12 +156,12 @@ class PredictionEvaluation:
 
 @dataclass(frozen=True, slots=True)
 class PanelEvaluation:
-    """Compare predictions from a selected set of features with reference predictions.
+    """Prediction scores for a panel and a reference model.
 
     Attributes:
         metric: Name of the scoring rule.
         reference_value: Metric value for the reference model.
-        panel_value: Metric value for the selected-feature model.
+        panel_value: Metric value for the panel.
         difference: Panel value minus reference value. Negative favours the panel for loss metrics.
         sample_count: Number of shared evaluation rows.
     """
@@ -182,7 +183,8 @@ class RankStabilityEvaluation:
         depth: Features per top list.
         mean_leading_jaccard: Mean fraction of the two top lists' union shared by both lists.
         mean_leading_intersection: Mean number of features shared by the two top lists.
-        expected_random_intersection: Expected random shared count, depth² divided by feature count.
+        expected_random_intersection: Expected shared feature count for independent random rankings
+            (`depth**2 / feature_count`).
         excess_leading_intersection: Mean shared count minus the random expectation.
         mean_spearman: Mean pairwise Spearman correlation.
         mean_rank_biased_overlap: Mean pairwise rank overlap, weighted towards the top.
@@ -210,7 +212,7 @@ class ReplicateSummary:
         standard_deviation: Sample standard deviation of successful estimates.
         standard_error: Sample standard deviation divided by the square root of the success count.
         confidence_interval_low: Lower bound of the 95% t interval for the mean.
-        confidence_interval_high: Upper bound of the 95% t interval for the mean.
+        confidence_interval_high: Upper bound of that interval.
     """
 
     replicate_count: int
@@ -251,12 +253,12 @@ class PairedReplicateComparison:
 
 @dataclass(frozen=True, slots=True)
 class FractionalRecovery:
-    """Fraction of known targets found, averaging over ties at the selection cutoff.
+    """Recovery averaged over ties at the selection cutoff.
 
     Attributes:
         estimand: Recovery measure for exact targets, groups, weights or interactions.
         value: Score in [0, 1], with the denominator or event defined by `estimand`.
-        truth_support: Total exact targets, groups, weighted features or interaction members.
+        truth_support: Count of targets for `estimand` (two for an interaction).
         positive_score_support_size: Number of positive scores, including those below the cutoff.
         requested_depth: Requested slot count.
         achieved_size: Features with positive selection probability.
@@ -285,8 +287,10 @@ class MatchedRecovery:
         achieved_size: Features with positive selection probability.
         observed_recovery: Recovery score for the supplied selection.
         expected_recovery: Mean recovery score under matched random selection.
-        chance_adjusted_recovery: Observed recovery minus expected recovery.
-        admissible_panel_count: Distinct assignments of positive status and selection weights.
+        chance_adjusted_recovery: Recovery above chance (observed minus expected recovery).
+        admissible_panel_count: Number of ways to assign positive-score status and selection
+            probabilities within matching groups, counting assignments separately even if they
+            can yield the same final panel.
     """
 
     estimand: Literal["exact", "group", "module", "interaction"]
@@ -301,12 +305,12 @@ class MatchedRecovery:
 
 @dataclass(frozen=True, slots=True)
 class OutcomeSpecificity:
-    """Compare a selection's recovery of outcome-generating targets and alternative targets.
+    """Recovery above chance for the outcome's targets compared with alternatives.
 
     Attributes:
         estimand: Recovery measure for exact targets, groups, weights or interactions.
-        own_adjusted_recovery: Observed minus chance recovery for the outcome-generating targets.
-        mean_foreign_adjusted_recovery: Mean observed minus chance recovery across alternatives.
+        own_adjusted_recovery: Recovery above chance for the outcome's targets.
+        mean_foreign_adjusted_recovery: Mean recovery above chance across alternatives.
         specificity: Own adjusted recovery minus the alternative mean.
         foreign_truth_count: Number of alternative target sets.
     """

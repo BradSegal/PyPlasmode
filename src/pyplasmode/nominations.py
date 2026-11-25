@@ -73,12 +73,15 @@ class FractionalNomination:
 
     @property
     def achieved_size(self) -> int:
-        """Return the number of features with non-zero selection membership."""
+        """Count features with positive selection probability."""
         return int(np.count_nonzero(self.membership > 0.0))
 
     @property
     def selected_features(self) -> tuple[str, ...]:
-        """Return the depth-limited features with non-zero selection probability."""
+        """Return the IDs with positive selection probability, in input order.
+
+        A tie at the cutoff gives more IDs than the requested depth.
+        """
         return tuple(
             feature
             for feature, weight in zip(self.feature_ids, self.membership, strict=True)
@@ -87,7 +90,7 @@ class FractionalNomination:
 
     @property
     def membership_budget(self) -> float:
-        """Return the sum of feature-selection membership probabilities."""
+        """Sum the selection probabilities."""
         return float(np.sum(self.membership))
 
 
@@ -105,7 +108,7 @@ def nomination_from_scores(
         depth: Number of slots requested, from one to the feature count.
 
     Returns:
-        Selection probabilities summing to the smaller of depth and the positive-score count.
+        Selection probabilities in input order.
     """
     values = np.asarray(scores, dtype=np.float64)
     integer(depth, "depth", minimum=1)
@@ -181,12 +184,17 @@ def evaluate_fractional_recovery(
 
     Args:
         nomination: Selection with candidate IDs in the same order as the truth's feature IDs.
-        truth: Generating score and the recovery targets used to judge the selection.
-        estimand: Score exact targets, groups, absolute weight or both interaction IDs.
-        allow_subset: Allow candidates in any order. Missing targets earn zero and still count.
+        truth: Recovery targets used to score the selection.
+        estimand: `"exact"` averages selection probabilities across exact targets, `"group"`
+            averages the probability of selecting any member per group, `"module"` gives the
+            fraction of absolute weight expected to be selected, and `"interaction"` gives the
+            probability of selecting both exact targets.
+        allow_subset: Allow any subset or reordering of the input feature IDs. Features omitted
+            from the candidates have zero selection probability, and all targets remain in scope.
 
     Raises:
-        ValueError: The truth lacks targets for the requested recovery measure.
+        ValueError: Candidate IDs do not match the input feature IDs under `allow_subset`, or
+            the requested recovery measure is unsupported or has no valid targets.
     """
     if nomination.feature_ids != truth.feature_universe and not (
         allow_subset and set(nomination.feature_ids).issubset(truth.feature_universe)
@@ -467,15 +475,16 @@ def sample_matched_nominations(
     draws: int,
     seed: int,
 ) -> tuple[FractionalNomination, ...]:
-    """Generate random feature selections that preserve the observed counts and ties within strata.
+    """Draw random selections that match the observed one within each matching group (`strata`).
+
+    Each draw keeps the number of positive scores and the selection probabilities assigned
+    within every group.
 
     Args:
         strata: Non-empty group labels in feature order, independent of outcomes and targets.
         draws: Positive number of independent selections.
         seed: Non-negative integer for random assignments.
 
-    Returns:
-        Selections with positive-score status and membership weights reassigned within each stratum.
 
     Raises:
         ValueError: Invalid strata, draw count or seed.
@@ -503,16 +512,20 @@ def evaluate_matched_recovery(
     strata: tuple[str, ...],
     allow_subset: bool = False,
 ) -> MatchedRecovery:
-    """Measure how much more of a known target a selection finds than matched random selections.
+    """Measure recovery above chance: observed recovery minus that of matched random selection.
 
-    The chance expectation is calculated from random assignments of positive-score status
-    and selection weights within each stratum, preserving their counts and values.
+    Returns the observed recovery, its expectation under matched random selection and their
+    difference, which is negative when the selection does worse than chance.
+
+    Calculate chance recovery analytically by reassigning positive-score status and selection
+    probabilities within each matching group (`strata`), preserving their counts and values.
 
     Args:
         truth: Known targets for scoring the selection.
         estimand: Recovery measure as in `evaluate_fractional_recovery`.
         strata: Non-empty group labels in feature order, independent of outcomes and targets.
-        allow_subset: Allow a candidate subset while retaining the full targets in the denominator.
+        allow_subset: Allow any subset or reordering of the input feature IDs. Omitted features
+            have zero selection probability in observed and chance recovery.
 
     Raises:
         ValueError: The strata, candidate IDs or recovery targets are incompatible.
@@ -578,19 +591,21 @@ def evaluate_outcome_specificity(
 ) -> OutcomeSpecificity:
     """Compare recovery above chance for the outcome's own targets and alternative targets.
 
-    Recovery above chance is observed recovery minus its expected value under matched random
-    selection. The same selection and matching groups are used for every target set.
+    Recovery above chance is observed minus expected recovery under matched random selection.
+    Use the same selection and matching groups for every set of targets. Return the outcome's
+    recovery above chance, the mean over alternatives and the difference between the two.
 
     Args:
-        own_truth: Score that drives the simulated outcome and its selection targets.
-        foreign_truths: Alternatives sharing the design, ordered features and target count.
+        own_truth: Generating score and recovery targets for the simulated outcome.
+        foreign_truths: Alternative signals with the same `kind`, ordered feature IDs and
+            target count for `estimand`, and disjoint target features.
         estimand: Recovery measure as in `evaluate_fractional_recovery`.
         strata: Non-empty group labels in feature order, independent of outcomes and targets.
         allow_subset: Allow a candidate subset while scoring against all targets.
 
     Raises:
-        ValueError: There are no alternatives, targets overlap across truths, or truths differ in
-            design, feature IDs or target count for the chosen measure.
+        ValueError: Inputs are invalid, there are no alternatives, targets overlap across
+            signals, or signals differ in kind, ordered feature IDs or target count for `estimand`.
     """
     if not foreign_truths:
         raise ValueError("specificity requires at least one foreign truth")

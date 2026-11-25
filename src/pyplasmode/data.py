@@ -57,12 +57,12 @@ class Population:
 
     @property
     def sample_count(self) -> int:
-        """Return the number of empirical rows."""
+        """Return the number of rows."""
         return int(self.X.shape[0])
 
     @property
     def feature_count(self) -> int:
-        """Return the number of feature columns."""
+        """Return the number of columns."""
         return int(self.X.shape[1])
 
 
@@ -92,7 +92,7 @@ class ResampledPopulation:
         object.__setattr__(self, "source_indices", _readonly_indices(indices))
 
     def as_population(self) -> Population:
-        """Return the sampled matrix and column IDs as a `Population` without the source indices."""
+        """Return a `Population` without the source indices."""
         return Population(self.X, self.feature_ids)
 
 
@@ -169,7 +169,7 @@ def partition_population(
         seed: Non-negative integer for shuffling rows.
 
     Raises:
-        ValueError: The requested split leaves a pool empty.
+        ValueError: The seed or fractions are invalid, or the requested split leaves a pool empty.
     """
     integer(seed, "seed")
     if (
@@ -226,7 +226,8 @@ def sample_population(
         method: `"with_replacement"` allows repeats. `"without_replacement"` draws distinct rows.
 
     Raises:
-        ValueError: A sample without replacement exceeds the available row count.
+        ValueError: The size is not a positive integer, the method is unsupported, or a draw
+            without replacement exceeds the available row count.
     """
     if method == "with_replacement":
         return resample_population(population, sample_size, rng)

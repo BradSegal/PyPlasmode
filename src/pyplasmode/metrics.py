@@ -1,7 +1,6 @@
 """Selection agreement, censoring-aware discrimination and participant uncertainty.
 
 Rankings and predictions must already share feature or participant identities.
-These metrics do not fit models or move data.
 """
 
 from __future__ import annotations
@@ -38,10 +37,11 @@ class SelectionStability:
     """Agreement of feature selections across refits after accounting for chance.
 
     Attributes:
-        value: One for perfect agreement, zero at chance and negative below chance.
+        value: One if all refits always select the same features, zero at chance and negative
+            below chance. Identical cutoff ties can reduce the score below one.
         feature_ids: Feature order from the first refit.
         frequencies: Mean selection probability per feature in ID order.
-        membership_budgets: Total slots per refit in input order. Boundary ties share slots equally.
+        membership_budgets: Total selection probability per refit in input order.
 
     The score is `None` when every refit selects nothing or every refit selects all features.
     """
@@ -54,14 +54,16 @@ class SelectionStability:
 
 @dataclass(frozen=True, slots=True)
 class ConsensusRanking:
-    """Combined ordering by selection frequency and rank when selected.
+    """Ordering by mean selection probability, then median rank.
 
     Attributes:
         feature_ids: Input feature order for the ranks, probabilities and medians.
         ranking: Sorted feature IDs, alphabetised within ties.
-        ranks: One-based comparison ranks, averaged within ties.
+        ranks: One-based ranks from the combined ordering, averaged among features tied in both
+            frequency and median rank.
         inclusion_probabilities: Mean selection probability across refits.
-        median_selected_ranks: Median rank when selectable, or infinity if never selectable.
+        median_selected_ranks: Median within-refit rank over refits in which the feature had
+            positive selection probability, or infinity if it always had zero probability.
     """
 
     feature_ids: tuple[str, ...]
@@ -74,7 +76,9 @@ class ConsensusRanking:
 def selection_stability(nominations: Sequence[FractionalNomination]) -> SelectionStability:
     """Measure how consistently refits select the same features above chance.
 
-    The Nogueira score subtracts from one the ratio of observed to chance selection variance.
+    The Nogueira score is one minus the mean across features of the sample variance of their
+    selection indicators across refits, divided by `p * (1 - p)`, where `p` is the mean fraction of
+    features selected per refit.
     It averages over independent uniform resolutions of ties at each cutoff. It is negative
     when observed variance exceeds chance. Unequal numbers of slots cap the score below one.
 
@@ -131,7 +135,9 @@ def rank_biased_overlap(
         Weighted agreement in [0, 1]. For `"webber"`, each cutoff uses twice the shared count
         divided by the combined sizes of the two top lists. For `"independent"`, it averages the
         shared fraction over independent uniform resolutions, so identical tied lists can score
-        below one. Position d has weight `(1 - p) * p**(d - 1)`, with the rest on full agreement.
+        below one. At depth `d`, weight the agreement by `(1 - p) * p**(d - 1)`, where `p` is
+        `persistence`. At the full feature count `n`, both lists contain all features, so the
+        final agreement is one and receives the remaining weight `p**(n - 1)`.
     """
     left, right = _ranks(left_ranks), _ranks(right_ranks)
     if left.shape != right.shape:
@@ -168,7 +174,10 @@ def rank_biased_overlap(
 def consensus_ranking(
     feature_ids: tuple[str, ...], scores: ArrayLike, *, depth: int
 ) -> ConsensusRanking:
-    """Rank features by how often refits select them, then by their median rank when selected.
+    """Combine the feature selections of several refits into one ranking.
+
+    Features are ordered by mean selection probability across refits. Ties are broken by median
+    within-refit rank over the refits in which the feature had positive selection probability.
 
     Positive ties at the cutoff share the remaining slots equally.
 
@@ -334,12 +343,15 @@ def paired_bootstrap_difference(
 ) -> BootstrapDifference:
     """Estimate uncertainty for a metric difference using shared participant resamples.
 
-    Each draw samples the original row count with replacement. Keep fitted models fixed
-    and re-estimate evaluation nuisance parameters in the callback when needed. Training
-    samples remain fixed unless the callback resamples them.
+    Draw the original number of rows with replacement and return the right-minus-left metric
+    difference with a percentile interval over successful draws. For uncertainty on fixed models,
+    keep fitted models and training data fixed. Recompute any evaluation quantities that depend
+    on the resampled rows in the callback, such as the evaluation sample's mean outcome used as a
+    baseline.
 
     Args:
-        participants: Row count of at least two, or unique participant IDs in row order.
+        participants: Row count, or unique participant IDs in row order. Both forms require at
+            least two participants.
         statistic: Takes zero-based row indices and returns finite left and right estimates,
             or `None` if either is undefined. Use the same indices for both estimates.
         resamples: Number of attempted draws, at least two.
@@ -347,7 +359,8 @@ def paired_bootstrap_difference(
         seed: Non-negative sampling seed.
 
     Raises:
-        ValueError: The original comparison is undefined or fewer than two draws succeed.
+        ValueError: Inputs are invalid, the callback returns invalid estimates or the original
+            comparison is undefined, or fewer than two draws succeed.
     """
     if isinstance(participants, (int, np.integer)):
         integer(participants, "participants", minimum=2)
@@ -421,7 +434,10 @@ class DiscriminationGap:
 def discrimination_gap(
     oracle_risk: ArrayLike, fitted_risk: ArrayLike, *, metric: Callable[[ArrayLike], float]
 ) -> DiscriminationGap:
-    """Compare risk scores from the known generating model and a fitted model using one shared AUC.
+    """Compare the AUC of the generating score with the AUC of a fitted model on the same rows.
+
+    The same AUC function is applied to both sets of risk scores. Returns both AUCs and the
+    generating score's AUC minus the fitted model's.
 
     Args:
         oracle_risk: At least two finite scores from the generating model, in evaluation row order.

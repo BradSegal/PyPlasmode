@@ -36,7 +36,7 @@ class Plasmode:
     """Sampled features paired with simulated outcomes.
 
     Attributes:
-        X: Read-only feature matrix in draw order.
+        X: Feature matrix in draw order. Generation functions return it read-only.
         feature_ids: Feature IDs in column order.
         outcome: Simulated outcomes in row order, with model parameters.
         truth: The generating score and its recovery targets.
@@ -143,18 +143,23 @@ def generate(
     sampling_method: SamplingMethod = "with_replacement",
     feature_sets: FeatureSets | None = None,
 ) -> Plasmode:
-    """Sample whole feature rows and simulate one outcome per row from a known score.
+    """Draw feature rows, compute the generating score and simulate one outcome per row.
+
+    Returns the sampled rows, their outcomes, the generating score and the source row indices
+    together.
 
     Args:
-        truth: Specification of the outcome-generating score and feature-selection targets.
-        outcome: Outcome family, target summaries and effect or target AUC.
+        truth: Generating score and recovery targets to compute from the sampled rows.
+        outcome: Outcome family and its calibration settings.
         sample_size: Positive number of feature rows to draw.
         seed: Non-negative seed for sampling rows, choosing features and drawing outcomes.
         sampling_method: Whether repeats are allowed when drawing rows.
-        feature_sets: Feature groups required for correlated and module scores.
+        feature_sets: Named feature groups required by `CorrelatedTruth` and `ModuleTruth`.
 
     Raises:
-        ValueError: The score is invalid or sampling without replacement needs more rows.
+        ValueError: Invalid generation, sampling or outcome settings, or an infeasible draw or
+            generating score.
+        TypeError: The truth or outcome specification type is unsupported.
         CalibrationError: Outcome targets are unattainable.
         RealizationError: The simulated outcomes fail a sampling diagnostic.
     """
@@ -261,20 +266,22 @@ def generate_partitioned(
 ) -> PartitionedPlasmode:
     """Simulate outcomes on samples drawn from separate training, validation and test pools.
 
-    Automatic feature choices use the training pool. Preprocessing, score scaling and
-    outcome calibration use the pooled sampled rows. A role's expected rate can
-    differ from the combined-population target with its covariate distribution,
-    and its realised rate also varies with outcome sampling.
+    When generating features are chosen automatically, use the training pool. Pool the sampled
+    rows in training, validation and test order for imputation, standardisation and calibration.
+    Return three datasets with source-row indices and shared calibration diagnostics. Outcome
+    targets apply to the pooled sample. Split-level summaries can differ.
 
     Args:
-        truth: Built-in specification of the outcome-generating score and selection targets.
+        truth: Built-in signal structure and recovery targets.
         outcome: Outcome targets for the combined sample.
         seed: Non-negative seed for rows, features and outcomes.
         sampling_method: Whether to draw the rows in each pool with replacement.
-        feature_sets: Feature groups required for correlated and module scores.
+        feature_sets: Named feature groups required by `CorrelatedTruth` and `ModuleTruth`.
 
     Raises:
-        ValueError: The score is invalid or custom, or a draw without replacement exceeds its pool.
+        ValueError: Invalid generation, sampling or outcome settings, a custom signal, or an
+            infeasible draw or generating score.
+        TypeError: The truth or outcome specification type is unsupported.
         CalibrationError: Outcome targets are unattainable.
         RealizationError: The combined outcomes fail a sampling diagnostic.
     """

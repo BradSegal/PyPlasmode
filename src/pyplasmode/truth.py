@@ -22,7 +22,7 @@ class RecoveryGroup:
 
     Attributes:
         name: Group identifier.
-        direct_feature: Member used directly in the score, or `None` if none is designated.
+        direct_feature: Designated generating feature, or `None` if there is none.
         features: Unique eligible feature IDs, including the direct feature if designated.
     """
 
@@ -43,7 +43,9 @@ class FeatureWeight:
 
     Attributes:
         feature: Feature ID.
-        weight: Finite, non-zero weight. In additive scores it multiplies a standardised feature.
+        weight: Finite, non-zero weight. In built-in additive generating scores it multiplies a
+            standardised
+            feature before the score itself is standardised.
     """
 
     feature: str
@@ -69,7 +71,7 @@ class MaterializedTruth:
         graph_region: Target graph node IDs.
         center: Mean before score standardisation.
         scale: Population standard deviation before score standardisation.
-        description: Label for the design.
+        description: Label for the signal structure.
 
     Unused target tuples are empty. For a score built by `materialize_truth`,
     `center` and `scale` are both zero in the null case.
@@ -120,12 +122,12 @@ class MaterializedTruth:
 
 @dataclass(frozen=True, slots=True)
 class NullTruth:
-    """A zero generating score: no feature has an effect through the signal."""
+    """A zero generating score."""
 
 
 @dataclass(frozen=True, slots=True)
 class SparseTruth:
-    """Use a weighted sum of selected standardised features to drive outcomes.
+    """Use a weighted sum of selected standardised features as the generating score.
 
     Specify either feature IDs or a count. Automatic selection searches in seeded random
     order and raises `ValueError` if it cannot find enough features within the correlation limit.
@@ -134,7 +136,8 @@ class SparseTruth:
         count: Number of features to pick automatically.
         features: Unique IDs of explicitly chosen features, also the exact selection targets.
         weights: Finite, non-zero coefficients in explicit feature order, defaulting to one.
-        max_absolute_correlation: Search limit on absolute Pearson correlation, in [0, 1).
+        max_absolute_correlation: Maximum absolute Pearson correlation between any two automatically
+            chosen features, in [0, 1). Ignored when `features` is supplied.
     """
 
     count: int | None = None
@@ -157,17 +160,18 @@ class SparseTruth:
 
 @dataclass(frozen=True, slots=True)
 class CorrelatedTruth:
-    """Define a weighted sum of one feature or the mean from each of several disjoint groups.
+    """Define the generating score as a weighted sum of contributions from disjoint groups.
 
     A selection finds a group if it contains any member. The input data determines the correlations.
 
     Attributes:
         group_names: Names of the groups in `FeatureSets`, in coefficient order.
-        sentinels: One generating feature per group, or empty for seeded choices in sentinel mode.
-        weights: Finite, non-zero group coefficients, defaulting to one.
-        signal_form: `"sentinels"` uses one z-score. `"group_means"` averages member z-scores.
-
-    In `"group_means"` mode, leave `sentinels` empty. Only sentinels are exact selection targets.
+        sentinels: One generating feature per group, in `group_names` order. In `"sentinels"`
+            mode an empty tuple picks one member per group using the seed. The generating features
+            are the exact recovery targets in this mode. Leave empty in `"group_means"` mode.
+        weights: Finite, non-zero coefficients in `group_names` order, defaulting to one.
+        signal_form: `"sentinels"` uses the standardised value of each chosen feature.
+            `"group_means"` uses the mean of each group's standardised features.
     """
 
     group_names: tuple[str, ...]
@@ -197,7 +201,7 @@ class ModuleTruth:
         set_name: Name of the set in `FeatureSets`.
         weights: Finite, non-zero coefficients in set order, defaulting to one.
 
-    Coverage divides the absolute weight selected by the total absolute weight.
+    Weighted recovery divides the sum of selected absolute weights by the total absolute weight.
     """
 
     set_name: str
@@ -215,7 +219,10 @@ class InteractionTruth:
     Attributes:
         features: Two distinct feature IDs that form the joint selection target.
         operation: `"product"` multiplies values. `"threshold"` tests if both exceed the cutoff.
-        threshold: Finite cutoff in feature standard deviations. The test yields zero or one.
+        threshold: Finite cutoff in feature standard deviations. With `"threshold"`, the indicator
+            is one when both standardised values exceed the cutoff and zero otherwise. The
+            indicator is then standardised to form the generating score. A constant indicator raises
+            `ValueError` during generation.
     """
 
     features: tuple[str, str]
@@ -242,7 +249,7 @@ class CustomSignal:
         groups: Groups credited when any member is selected.
         weights: Signed coefficients used to score coverage by absolute weight.
         graph_region: Target feature IDs for graph scoring.
-        description: Optional label for the design.
+        description: Optional label for the signal structure.
 
     All target feature IDs must occur in the input columns.
     """
@@ -267,7 +274,7 @@ class CustomTruth:
     Attributes:
         function: Callback taking a read-only matrix, column IDs and a seeded NumPy generator.
 
-    Return a `CustomSignal` with identical scores, targets and label for identical inputs and seed.
+    The callback must return the same `CustomSignal` contents for the same inputs and seed.
     """
 
     function: CustomTruthFunction
@@ -406,16 +413,19 @@ def materialize_truth(
 ) -> MaterializedTruth:
     """Compute the generating score and record the feature-selection targets.
 
-    Built-in feature scores use median-imputed, standardised columns. The resulting score has
-    mean zero and unit population standard deviation. A null specification gives all zeros.
+    Built-in specifications median-impute and standardise the feature columns they use.
+    Non-null generating scores are standardised to mean zero and unit population standard
+    deviation. Null scores are zero on every row.
 
     Args:
-        truth: Built-in specification or `CustomTruth` callback.
+        truth: Built-in signal specification or a `CustomTruth` wrapping a callback.
         seed: Non-negative integer for automatic choices or the custom callback.
         feature_sets: Named feature groups required by correlated and module specifications.
 
     Raises:
-        ValueError: Required features are unavailable or a non-null score is constant.
+        ValueError: Invalid settings or targets, an infeasible automatic selection, a non-finite
+            or constant non-null generating score, or a custom callback that returns the wrong
+            shape or differs between identical calls.
         TypeError: The specification type is unsupported.
     """
     integer(seed, "seed")

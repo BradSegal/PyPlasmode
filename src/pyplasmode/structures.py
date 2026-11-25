@@ -11,7 +11,7 @@ from pyplasmode.data import Population
 
 @dataclass(frozen=True, slots=True)
 class StructureAlignment:
-    """Comparison of declared feature IDs with the columns of a feature matrix.
+    """Feature IDs shared by or unique to a declaration and a feature matrix.
 
     Attributes:
         mapped: Declared IDs found in the matrix, in column order.
@@ -26,7 +26,11 @@ class StructureAlignment:
 
 @dataclass(frozen=True, slots=True)
 class FeatureSet:
-    """One named set of features."""
+    """A named set of features.
+
+    `name` is non-empty with no surrounding whitespace; `members` is a non-empty tuple of unique
+    feature IDs.
+    """
 
     name: str
     members: tuple[str, ...]
@@ -42,7 +46,7 @@ class FeatureSet:
 
 @dataclass(frozen=True, slots=True)
 class FeatureSets:
-    """Store named feature groups for defining scores that drive simulated outcomes.
+    """Store named feature groups for defining the generating score.
 
     Attributes:
         sets: Non-empty collection of uniquely named groups.
@@ -67,7 +71,7 @@ class FeatureSets:
         raise ValueError(f"unknown feature set: {name}")
 
     def align(self, population: Population) -> StructureAlignment:
-        """Compare the combined members of these sets with the columns of `population`."""
+        """Report which IDs are in both the sets and the population, and which are in only one."""
         declared = {member for item in self.sets for member in item.members}
         population_ids = set(population.feature_ids)
         return StructureAlignment(
@@ -96,7 +100,7 @@ class FeatureEdge:
 
 @dataclass(frozen=True, slots=True)
 class FeatureGraph:
-    """Connect related features in an undirected graph for selection scoring.
+    """Undirected graph for scoring feature recovery.
 
     Attributes:
         nodes: Non-empty tuple of unique feature IDs.
@@ -126,7 +130,7 @@ class FeatureGraph:
             pairs.add(pair)
 
     def align(self, population: Population) -> StructureAlignment:
-        """Compare the graph's node IDs with the columns of `population`."""
+        """Report which IDs are in both the graph and the population, and which are in only one."""
         graph_nodes = set(self.nodes)
         population_ids = set(population.feature_ids)
         return StructureAlignment(

@@ -74,14 +74,17 @@ def evaluate_ranking(
     *,
     depths: tuple[int, ...],
 ) -> RankingEvaluation:
-    """Measure how many exact generating features appear at the top of a ranking.
+    """Measure how many of the signal's exact targets appear in the top features of a ranking.
+
+    The exact targets are `truth.direct_features`. Each depth gets the count found, precision,
+    recall and false discovery fraction.
 
     Args:
         ranking: Every input feature ID once, most important first.
         depths: Non-empty tuple of strictly increasing cutoffs from one to the feature count.
 
     Raises:
-        ValueError: The supplied truth defines no exact targets in `direct_features`.
+        ValueError: The ranking or depths are invalid, or `direct_features` is empty.
     """
     ordered = _ranking(ranking, truth.feature_universe)
     checked_depths = _depths(depths, len(ordered))
@@ -124,7 +127,7 @@ def evaluate_groups(
         depths: Non-empty tuple of strictly increasing cutoffs from one to the feature count.
 
     Raises:
-        ValueError: The supplied truth defines no target groups.
+        ValueError: The ranking or depths are invalid, or the signal defines no target groups.
     """
     ordered = _ranking(ranking, truth.feature_universe)
     checked_depths = _depths(depths, len(ordered))
@@ -145,14 +148,16 @@ def evaluate_module(
     *,
     depths: tuple[int, ...],
 ) -> ModuleEvaluation:
-    """Measure the share of total absolute generating weight among the top-ranked features.
+    """Measure the share of total absolute weight carried by the top features of a ranking.
+
+    At each depth, the selected absolute weights in `truth.weights` are divided by their total.
 
     Args:
         ranking: Every input feature ID once, most important first.
         depths: Non-empty tuple of strictly increasing cutoffs from one to the feature count.
 
     Raises:
-        ValueError: The supplied truth defines no feature weights.
+        ValueError: The ranking or depths are invalid, or the signal defines no feature weights.
     """
     ordered = _ranking(ranking, truth.feature_universe)
     checked_depths = _depths(depths, len(ordered))
@@ -182,7 +187,11 @@ def evaluate_graph_region(
     region: tuple[str, ...],
     depths: tuple[int, ...],
 ) -> GraphRegionEvaluation:
-    """Measure how much of a named set of graph nodes a ranking's top features contain.
+    """Measure how much of a set of graph nodes the top features of a ranking contain.
+
+    At each depth, node coverage is the fraction of region nodes selected. Edge coverage is the
+    fraction of edges joining two region nodes with both ends selected; edges count equally, and
+    it is `None` if the region has no such edges.
 
     Args:
         ranking: Every node of `graph` once, most important first.
@@ -190,7 +199,7 @@ def evaluate_graph_region(
         depths: Non-empty tuple of strictly increasing cutoffs from one to the node count.
 
     Returns:
-        A `GraphRegionEvaluation` containing one `GraphRegionAtDepth` per cutoff.
+        Node and edge coverage in depth order.
     """
     ordered = _ranking(ranking, graph.nodes)
     checked_depths = _depths(depths, len(ordered))
@@ -236,10 +245,14 @@ def evaluate_signal_reconstruction(
     development_indices: ArrayLike,
     evaluation_indices: ArrayLike,
 ) -> SignalReconstructionEvaluation:
-    """Fit a linear model of the generating score on a panel and test it on held-out rows.
+    """Test how well a panel of selected features predicts the generating score on held-out rows.
 
-    Missing values are filled using medians from the fitting rows. An empty selection
-    predicts the mean score of those rows.
+    A linear model is fitted on the fitting rows; R-squared and RMSE are computed on the
+    held-out rows.
+
+    Fill missing values with fitting-row medians. Drop columns that are entirely missing in the
+    fitting rows. If the panel is non-empty but every column is dropped, raise `ValueError`.
+    An empty panel predicts the mean generating score of the fitting rows.
 
     Args:
         X: Feature matrix with observations in rows.
@@ -250,7 +263,8 @@ def evaluate_signal_reconstruction(
         evaluation_indices: Distinct zero-based test indices, disjoint from the fitting rows.
 
     Raises:
-        ValueError: The test rows contain fewer than two distinct score values.
+        ValueError: The inputs are invalid, the fitting and test rows overlap, or the held-out
+            generating score has fewer than two distinct values.
     """
     matrix = np.asarray(X, dtype=np.float64)
     target = np.asarray(signal, dtype=np.float64)
@@ -289,11 +303,12 @@ def evaluate_signal_reconstruction(
 def evaluate_prediction(
     target: ArrayLike, prediction: ArrayLike, *, metric: PredictionMetric
 ) -> PredictionEvaluation:
-    """Score predictions on the observations used to make them.
+    """Score predictions against observed outcomes with one metric.
 
     Args:
         target: Finite outcome vector in prediction order. Classification labels are zero or one.
-        prediction: Finite vector. Higher scores predict class one for AUC and average precision.
+        prediction: Finite vector in `target` order. Supply class-one probabilities for log loss.
+            Higher scores predict class one for AUC and average precision.
         metric: `"roc_auc"`, `"average_precision"`, `"log_loss"`, `"r2"` or `"rmse"`.
 
     Raises:
@@ -347,11 +362,13 @@ def evaluate_panel(
     *,
     metric: PredictionMetric,
 ) -> PanelEvaluation:
-    """Compare a selected-feature model with a reference model using the same observations.
+    """Compare a panel model's predictions with a reference model's on the same observations.
+
+    Returns both metric values and their difference, the panel value minus the reference value.
 
     Args:
         reference_prediction: Reference model predictions in `target` order.
-        panel_prediction: Predictions from the selected features in `target` order.
+        panel_prediction: Panel predictions in `target` order.
         metric: Scoring rule, with the same input requirements as `evaluate_prediction`.
     """
     reference = evaluate_prediction(target, reference_prediction, metric=metric)
@@ -390,7 +407,11 @@ def rank_stability(
     depth: int,
     persistence: float = 0.9,
 ) -> RankStabilityEvaluation:
-    """Measure how much feature rankings agree at the top and across their full length.
+    """Measure how closely two or more complete rankings of the same features agree.
+
+    Every pair of rankings is compared and the results averaged: Jaccard overlap and
+    shared-feature count at each depth, with the overlap expected from independent random
+    rankings, and Spearman correlation and rank-biased overlap over the complete rankings.
 
     Args:
         rankings: At least two rankings of the same two or more features, most important first.
@@ -501,7 +522,8 @@ def compare_paired_replicates(
         allow_unmatched: Use shared IDs and report unmatched counts. By default ID sets must match.
 
     Raises:
-        ValueError: Fewer than two pairs succeed on both sides.
+        ValueError: Invalid or unmatched IDs (unless unmatched IDs are allowed), invalid values,
+            or fewer than two pairs that succeed on both sides.
     """
     left = _replicate_values(left_ids, left_values)
     right = _replicate_values(right_ids, right_values)
