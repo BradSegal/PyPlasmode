@@ -6,13 +6,12 @@ Documentation only. No executable code changed.
 
 ### Changed
 
-- Guide sections that a new reader could not follow are rewritten with worked examples: the
-  signal structures, outcome specificity, signal reconstruction, tied scores, ranking stability,
-  prediction and panels, the metrics, AUC calibration and the calibration checks.
+- Every guide section says what it is for, gives the reason for each instruction and walks
+  through its examples with their printed output. The tutorial reads as one lesson.
 - Public docstrings say what each name is and what each argument and result field means.
-- The section on graph regions explains what a region is and what the evaluator measures.
 - The references page lists plain citations.
 - The contributing guide separates everyday checks from release checks.
+- The examples of two more pages (signals and methods) run in the test suite.
 
 ### Fixed
 
@@ -20,7 +19,18 @@ Documentation only. No executable code changed.
   with the number in `value`.
 - The prose for `evaluate_panel` named the panel and the reference in the opposite order to the
   function's arguments.
+- `failure_count` in `summarize_replicates` was described as keeping failed runs in the summary;
+  it records the count, and the mean and interval use successful runs only.
 - The benchmark page described its three target AUCs as effect sizes.
+- The calibration page said a fitted model's held-out AUC is typically below that of the
+  generating score; in a finite sample the difference can take either sign.
+- The API page said latent survival times beyond administrative follow-up are infinite; they are
+  infinite when the event does not occur by the last risk point.
+- Graph edges were described as weighted in evaluation; every edge counts equally.
+- Generation was described as sampling complete rows; it draws whole rows, missing values
+  included.
+- The realisation tolerances for ordered categories and for survival event and censoring risks
+  are stated.
 
 ## 1.2.1 — 2026-11-25
 

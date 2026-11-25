@@ -1,9 +1,9 @@
 # Visual gallery
 
 Three choices shape a feature-selection benchmark: how the generating features combine into a
-signal, what counts as finding them when they have correlates, and what kind of outcome is
-simulated. Each figure below varies one of these on synthetic inputs, so you can see its effect
-before you set up your own study.
+signal, whether a feature correlated with a generating feature counts as finding it, and what kind
+of outcome is simulated. Each figure below varies one of these on synthetic inputs, so you can see
+its effect before you set up your own study.
 
 ## Different signals, the same features
 
@@ -21,12 +21,12 @@ contours show the score after standardisation:
 - **a**, no signal: the score is zero everywhere.
 - **b**, P1 alone: the score changes only along P1.
 - **c**, the sum of P1 and P2: the score changes with both.
-- **d**, their product: the score rises where both are high or both are low, so neither feature
-  predicts the outcome alone.
+- **d**, their product: the score rises where both are high or both are low. Neither feature
+  shifts the average score on its own, so a method that fits additive effects misses both.
 - **e**, a joint threshold: the score takes one value where both features are positive and
   another elsewhere, an abrupt rather than gradual change.
 - **f**, the custom function `tanh(P1) + 0.5*tanh(P2)`: the score levels off at extreme values,
-  and P1 counts twice as much as P2.
+  and at equal values P1 contributes twice as much as P2.
 
 [Generating signals](truths.md) describes each structure and its settings.
 
@@ -35,7 +35,8 @@ contours show the score after standardisation:
 
 ## Finding a feature or finding its group
 
-When the generating feature has strong correlates, a model can rank a correlate first and
+When the generating feature has strong correlates (features correlated with it), a model can
+rank a correlate first and
 predict almost as well. Whether that counts as a success decides which recovery you measure.
 
 ![A correlation matrix beside exact-feature and group-recovery curves for two example rankings](assets/patterns/correlated-recovery.svg)
@@ -46,7 +47,7 @@ group. P4 to P6 are unrelated. **b**, recovery of the generating feature and **c
 the group, at each ranking depth, for two orders:
 
 - **Generator first:** P1, P2, P3, P4, P5, P6.
-- **Substitute first:** P2, P4, P5, P6, P3, P1, which puts a correlate first and P1 last.
+- **Substitute first:** P2, P4, P5, P6, P3, P1.
 
 Both orders find the group at the first rank. Only the first finds P1 there; the second finds
 it at rank six. If a correlate is as useful to you as the generating feature, for example
@@ -93,10 +94,9 @@ The [outcome guide](outcomes.md) explains each family and its calibration.
 
 ## Generate the source tables
 
-To redraw the figures with other signals or outcome settings, regenerate their data tables.
-Install PyPlasmode from [PyPI](https://pypi.org/project/pyplasmode/), download the
+To redraw the figures with other signals or outcome settings, download the
 [gallery example](https://github.com/BradSegal/PyPlasmode/blob/main/examples/pattern_gallery.py)
-and run it:
+and run it to regenerate their data tables:
 
 ```bash
 python -m pip install pyplasmode

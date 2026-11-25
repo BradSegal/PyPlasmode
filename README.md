@@ -2,23 +2,22 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24518248.svg)](https://doi.org/10.5281/zenodo.24518248)
 
-A model can predict an outcome well while ranking the wrong features first, and on real data
-you cannot tell, because nobody knows which features generated the outcome. PyPlasmode keeps
-your feature data and simulates the outcome from features you choose. You can then measure how
-well a model predicts the outcome and how many of the generating features it identifies.
+A model can predict an outcome well while ranking the wrong features first, and on real data you
+usually cannot tell, because the features that generated the outcome are unknown. PyPlasmode keeps
+your feature data and simulates the outcome from features you choose. You can then measure how well
+a model predicts the outcome and how many of the generating features it identifies.
 
 Measured features with a simulated outcome are called a *plasmode*. The features keep their
 real correlations, which is what makes selecting the right ones hard. The library was built for
-biomarker benchmarking and accepts any numeric matrix of observations and named features. It
+biomarker benchmarking and accepts any numeric matrix of observations and uniquely named
+features, with missing values as NaN. It
 does not fit models: you fit them with your own tools and hand back their predictions,
 rankings or selected panels.
 
 [![From observed measurements to simulated outcomes, model predictions and feature recovery](https://raw.githubusercontent.com/BradSegal/PyPlasmode/main/docs/assets/concepts/plasmode-workflow.png)](https://bradsegal.github.io/PyPlasmode/methods/)
 
-The [visual gallery](https://bradsegal.github.io/PyPlasmode/gallery/) shows signal structures, recovery among correlated
-features and the five outcome families. The [feature-selection tutorial](https://bradsegal.github.io/PyPlasmode/tutorial/)
-follows a complete example from correlated measurements through model fitting, attribution
-and recovery above chance.
+Start with the [feature-selection tutorial](https://bradsegal.github.io/PyPlasmode/tutorial/)
+or the [visual gallery](https://bradsegal.github.io/PyPlasmode/gallery/).
 
 ## Installation
 
@@ -36,6 +35,9 @@ python -m pip install "pyplasmode[validation]"
 ```
 
 ## Ten-minute example
+
+Fit a classifier on simulated training outcomes, then check whether it predicts held-out
+outcomes and ranks the known generating features first.
 
 ```python
 import numpy as np
@@ -79,14 +81,16 @@ print(round(prediction.value, 3))
 # 0.626
 ```
 
-The rows are split 60:20:20 into training, validation and test pools before sampling, so no
-row a model is fitted on is also used to judge it. Three of the 100 features generate a binary outcome that 15% of rows have on average,
-with odds that double for each standard deviation of the generating score (the number computed
-for each row from the generating features).
+The rows are split 60:20:20 into training, validation and test pools before sampling, so no row a
+model is fitted on is also used to judge it. Three of the 100 features generate a binary outcome
+that 15% of rows have on average, with odds that double for each standard deviation of the
+generating score (the number computed for each row from the generating features).
 
-The first number is the recovery (`recall` in the API): the fraction of the three generating features in the model's top
-ten. The second is the AUC (area under the ROC curve) on the test sample. The
-example fits with fixed settings; to tune them, use the validation sample. One simulated
+The model ranks features by the size of its coefficients. The first number is the recovery
+(`recall` in the API): the fraction of the three generating features in the model's top ten.
+The second is the AUC (area under the ROC curve) on the test sample. The example fits with
+fixed settings; to tune them, use the validation sample, so that the test sample still judges
+a model it has not shaped. One simulated
 dataset gives one draw of each result, so repeat with different seeds to estimate average
 performance and its uncertainty.
 [Paired evaluation](https://bradsegal.github.io/PyPlasmode/evaluation/#paired-procedure-comparisons)
@@ -94,51 +98,49 @@ compares two procedures across such repeats.
 
 ## What can be varied
 
+Vary the signal, the outcome and the evaluation to match the conditions your method will face.
+
 - **Signal:** a null, sparse, correlated, distributed or interaction structure, or a custom
   function.
 - **Outcome:** binary probability, continuous mean and spread, count rate, ordinal category
   probabilities or cumulative event risks at chosen times. For binary and time-to-event outcomes,
   set a target AUC of the generating score in place of an odds or hazard ratio
   ([calibration](https://bradsegal.github.io/PyPlasmode/calibration/)).
-- **Evaluation:** feature and group recovery, weighted-module and graph-region coverage,
-  reconstruction of the generating score, prediction accuracy, panel performance and ranking
-  stability. Recovery can be scored from tied importance scores and incomplete selections, and
-  compared with what random selection would achieve (recovery above chance).
-  [`pyplasmode.metrics`](https://bradsegal.github.io/PyPlasmode/metrics/) adds stability across
-  refits, AUC under censoring and paired bootstrap differences.
+- **Evaluation:** prediction accuracy, feature and group recovery, reconstruction of the
+  generating score and stability across refits. Recovery can be compared with what random
+  selection would achieve (recovery above chance), including when importance scores tie.
 
 [Methods](https://bradsegal.github.io/PyPlasmode/methods/) describes how datasets are generated.
-The [signal](https://bradsegal.github.io/PyPlasmode/truths/) and
-[outcome](https://bradsegal.github.io/PyPlasmode/outcomes/) guides cover each choice, and the
-[evaluation guide](https://bradsegal.github.io/PyPlasmode/evaluation/) defines each result.
-The [validation example](https://bradsegal.github.io/PyPlasmode/validation/) checks the generators and recovery metrics against
-known values and reference estimators. The [API reference](https://bradsegal.github.io/PyPlasmode/api/)
-lists every signature and result field.
-
-The [examples](https://github.com/BradSegal/PyPlasmode/tree/main/examples) run on synthetic
-inputs. The [synthetic benchmark](https://bradsegal.github.io/PyPlasmode/benchmark-demo/)
-fits Cox, ridge and XGBoost across three signal structures and three target AUCs, then
-compares held-out AUC with recovery above chance in the top 20 features. It needs the
-optional model libraries: `python -m pip install "pyplasmode[benchmark]"`.
+See also the [signal](https://bradsegal.github.io/PyPlasmode/truths/),
+[outcome](https://bradsegal.github.io/PyPlasmode/outcomes/) and
+[evaluation](https://bradsegal.github.io/PyPlasmode/evaluation/) guides, the
+[validation example](https://bradsegal.github.io/PyPlasmode/validation/) and the
+[API reference](https://bradsegal.github.io/PyPlasmode/api/). The
+[synthetic benchmark](https://bradsegal.github.io/PyPlasmode/benchmark-demo/) compares held-out
+AUC with top-20 recovery above chance for Cox, ridge and XGBoost.
 
 ## Using it with a coding agent
 
-Use [`skills/pyplasmode`](https://github.com/BradSegal/PyPlasmode/tree/main/skills/pyplasmode)
-to give a coding agent the simulation workflow, design choices and common pitfalls. See [Coding agents](https://bradsegal.github.io/PyPlasmode/agents/).
+Use [`skills/pyplasmode`](https://github.com/BradSegal/PyPlasmode/tree/main/skills/pyplasmode) to
+give a coding agent the simulation workflow, design choices and common pitfalls. See [Coding
+agents](https://bradsegal.github.io/PyPlasmode/agents/).
 
 ## Working with empirical data
 
-Resampling preserves the source data's feature relationships and missingness patterns.
-It can reproduce individual records, so generated datasets require the same privacy protections
-as their source. See [Data handling](https://bradsegal.github.io/PyPlasmode/privacy-and-limitations/).
+Resampling draws whole rows, so each generated row keeps its source row's measurements and missing
+values, and correlations and missingness rates vary only by sampling. It can reproduce individual
+records, so generated datasets require the same privacy protections as their source. See [Data
+handling](https://bradsegal.github.io/PyPlasmode/privacy-and-limitations/).
 
 ## Citing
 
 Each release is archived on Zenodo. Cite the version you used; version 1.2.1 is
 [doi:10.5281/zenodo.24518249](https://doi.org/10.5281/zenodo.24518249). The DOI
 [10.5281/zenodo.24518248](https://doi.org/10.5281/zenodo.24518248) always resolves to the latest
-release. [`CITATION.cff`](https://github.com/BradSegal/PyPlasmode/blob/main/CITATION.cff) lists the authors.
+release. [`CITATION.cff`](https://github.com/BradSegal/PyPlasmode/blob/main/CITATION.cff) lists the
+authors.
 
 ## Licence
 
-PyPlasmode uses the [BSD 3-Clause License](https://github.com/BradSegal/PyPlasmode/blob/main/LICENSE).
+PyPlasmode uses the [BSD 3-Clause
+License](https://github.com/BradSegal/PyPlasmode/blob/main/LICENSE).

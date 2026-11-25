@@ -4,7 +4,8 @@ A simulated outcome should look like the outcome in your setting: a 15% event ra
 pressure of 120, a 10% risk at five years. You therefore describe it in those observable units,
 and PyPlasmode solves for the model parameters, such as an intercept, that produce them. Each
 outcome takes two kinds of setting: targets for the outcome's level, and an effect for how
-strongly the generating score acts on it. Every effect is per standard deviation of the
+strongly the generating score acts on it, which a target AUC can replace for binary and
+time-to-event outcomes. Every effect is per standard deviation of the
 generating score, the number computed for each row from the generating features. The solved
 parameters are stored with the outcome in `outcome.calibration`.
 
@@ -38,15 +39,15 @@ def simulate(specification):
 Use `BinaryOutcome` for a yes-or-no outcome such as a diagnosis. Set `probability`, the event
 probability averaged over rows, and one effect on the scale your field reports:
 
-- `odds_ratio` multiplies the odds of the event (a logistic model). It is valid for any
-  probability, so it is the safe default.
+- `odds_ratio` multiplies the odds of the event (a logistic model).
 - `risk_ratio` multiplies the event probability (a log-risk model).
 - `risk_difference` adds to the event probability (an identity-risk model).
 
-A risk ratio or risk difference can push the probability of the highest- or lowest-scoring
-rows outside 0 to 1, and generation then raises `CalibrationError`; use a smaller effect or an
-odds ratio. To set how well the score separates cases from controls instead, set `target_auc`
-and PyPlasmode solves for the odds ratio ([AUC calibration](calibration.md)).
+A risk ratio or risk difference can push the probability of the highest- or lowest-scoring rows
+outside 0 to 1, and generation then raises `CalibrationError`; use a smaller effect or an odds
+ratio, which keeps every probability in range whatever the score. To set how well the score
+separates cases from controls instead, set `target_auc` and PyPlasmode solves for the odds ratio
+([AUC calibration](calibration.md)).
 
 ```python
 binary = simulate(ppm.BinaryOutcome(probability=0.15, odds_ratio=2.0))
@@ -56,10 +57,8 @@ print(round(binary.calibration["intercept"], 2))
 # -1.89
 ```
 
-The outcome holds one label per row, and 15.2% of rows have the event against a target of 15%.
-The odds of the event double for each one-standard-deviation increase in the generating score.
-Calibration found the intercept, −1.89 on the log-odds scale, that makes the row probabilities
-average 15%.
+The outcome holds one label per row, with an event fraction close to the 15% target. The
+intercept is the log-odds value calibration found to make the row probabilities average 15%.
 
 ## Continuous
 
@@ -67,12 +66,13 @@ Use `ContinuousOutcome` for a measured quantity such as blood pressure. Set its 
 `standard_deviation`, and one of two effects:
 
 - `effect`, the change in the mean for each one-standard-deviation increase in the score, when
-  you think in the outcome's units. Its size must be smaller than `standard_deviation`, because
-  the rest of the variance is random noise and cannot be negative.
-- `variance_explained`, the share of the outcome's variance due to the score (between 0 and 1),
-  when you think in terms of how predictable the outcome is.
+  you think in the outcome's units. Its size must be smaller than `standard_deviation`, so that
+  some variance is left for the Gaussian noise that supplies the rest.
+- `variance_explained`, the share of the outcome's variance due to the score (at least 0 and
+  below 1), when you think in terms of how predictable the outcome is. It always gives a
+  positive effect; use `effect` for a negative one.
 
-Gaussian noise supplies the remaining variance. With a null signal, set the effect to 0:
+With a null signal, set the effect to 0:
 a constant score cannot explain any variance, and any other value raises
 `OutcomeSpecificationError`. At least two rows are needed, because a
 standard deviation cannot be checked on one.
@@ -83,8 +83,8 @@ print(round(float(continuous.values.mean()), 2), round(float(continuous.values.s
 # 99.92 14.83
 ```
 
-The sample's mean and standard deviation, 99.92 and 14.83, are close to their targets of 100 and
-15. The conditional mean rises by five units for each one-standard-deviation increase in the
+The sample's mean and standard deviation are close to their targets of 100 and 15. The
+conditional mean rises by five units for each one-standard-deviation increase in the
 score, so the score explains (5/15)² = 11% of the variance.
 
 ## Counts
@@ -95,15 +95,14 @@ person-year. A `rate_ratio` of 1.5 raises the expected rate by 50% for each one-
 increase in the score.
 
 `exposure` is each row's follow-up, in the units of the rate's denominator: years for a rate per
-year. Give one value for all rows (default 1.0) or one value per generated row. A per-row vector
-belongs to the simulated rows, not to the source rows, so it has `sample_size` entries for
-`generate`; for `generate_partitioned` it has one entry per row of the three samples, in
-training, validation and test order. `counts.exposure` returns the value used for each row.
+year. Give one value for all rows (default 1.0) or one per simulated row, not per source row:
+`sample_size` values for `generate`, or one per row of the three samples, in training, validation
+and test order, for `generate_partitioned`. `counts.exposure` returns the value used for each row.
 
 `variance_to_mean` sets how variable the counts are among rows with the same score and exposure.
 The default of 1 gives Poisson counts, whose variance equals their expected count. A value above
-1 gives overdispersed, negative-binomial counts (the NB1 form): with an expected count of 4 and
-`variance_to_mean=2`, the variance is 8. Real counts are often overdispersed, because people
+1 gives overdispersed, negative-binomial counts (the NB1 form), whose variance is that multiple of
+the expected count. Real counts are often overdispersed, because people
 with the same measurements still differ in ways the measurements miss.
 
 ```python
@@ -118,16 +117,17 @@ varying_counts = ppm.generate_outcome(count_spec, np.array([-1.0, 1.0]), np.rand
 print(varying_counts.exposure, varying_counts.values)  # [1. 2.] [3 5]
 ```
 
-The first draw gives integer counts with a mean of 2.975 per unit of exposure against a target
-of 3. Their variance, 7.4, is larger than twice the mean, because `variance_to_mean` applies
+The first draw gives integer counts with a mean close to the target of 3 per unit of exposure.
+Their variance is larger than twice the mean, because `variance_to_mean` applies
 among rows with the same score, and the score also makes expected counts differ between rows.
 The second draw calls `generate_outcome`, which draws outcomes from a score you supply without
-sampling rows. Its two rows have scores −1 and 1 and exposures of one year and two years.
+sampling rows, here two rows with scores −1 and 1 and exposures of one and two years.
 
 ## Ordered categories
 
-Use `OrdinalOutcome` for ordered categories such as mild, moderate and severe disease. Set the
-category labels from lowest to highest, the share of rows in each, and a `common_odds_ratio`.
+Use `OrdinalOutcome` for ordered categories such as mild, moderate and severe disease. Set
+`categories` from lowest to highest, `probabilities`, the share of rows in each in the same
+order, and a `common_odds_ratio`.
 PyPlasmode uses a proportional-odds model: at every boundary between categories, the odds of
 being above it are multiplied by the same ratio for each one-standard-deviation increase in the
 score. A ratio above one therefore moves rows with a higher score towards the higher
@@ -145,29 +145,30 @@ print(ordinal.categories, np.bincount(ordinal.codes) / len(ordinal.codes))
 # ('low', 'middle', 'high') [0.2524 0.4973 0.2503]
 ```
 
-The outcome stores the category names and an integer code per row: 0 for the lowest category,
-1 and 2 for the next. The shares of rows, 0.2524, 0.4973 and 0.2503, are close to their targets
-of 0.25, 0.50 and 0.25.
+The outcome stores the category names and an integer code per row, 0 for the lowest category.
+The shares of rows are close to their targets.
 
 ## Time to event
 
 Use `TimeToEventOutcome` for the time until an event such as a diagnosis, when not every
 person is followed until it happens. Set the cumulative event risk at one or more times, built
 with `days(...)` or `years(...)`. Risks of 10% at five years and 25% at ten years, for example,
-let the baseline event rate change after year five. PyPlasmode holds the event rate constant
-between consecutive times and matches each risk exactly (a piecewise-exponential model).
+let the baseline event rate change after year five. PyPlasmode holds each row's event rate (its
+hazard) constant between consecutive times and matches the average risk at each time (a
+piecewise-exponential model).
 
 Set the effect as a `hazard_ratio` per standard deviation of the score, or set `target_auc`
 ([AUC calibration](calibration.md)). Three further settings shape follow-up:
 
 - **Risk targets exclude censoring.** Each event risk is the risk in the absence of censoring,
   so your targets do not depend on how much follow-up is lost.
-- **Censoring is optional and random.** `censoring_risks` gives the cumulative risk of losing a
-  person to follow-up, at the same times as the event risks. Censoring does not depend on the
-  score or on the event, so it hides events at random.
-- **Follow-up ends at the last risk time** unless you set a later `administrative_horizon`.
-  The event and censoring rates are zero after the last risk time, so to have events after it,
-  add a later risk time.
+- **Censoring is optional and independent.** `censoring_risks` gives the cumulative risk of
+  losing a person to follow-up, at the same times as the event risks. Censoring does not depend
+  on the score or on the event, but it hides later events more often, because they have longer
+  to be censored.
+- **Follow-up ends at the last risk time** unless you set a later `administrative_horizon`, which
+  follows people still event-free for longer. The event and censoring rates are zero after the
+  last risk time, so to have events after it, add a later risk time with a higher risk.
 
 ```python
 survival = simulate(
@@ -183,16 +184,16 @@ print(round(float(survival.event.mean()), 3))
 # 0.235
 ```
 
-Fit survival models to `time`, the follow-up in days, and `event`, which is true when the event
-was observed. Here 23.5% of rows have an observed event, fewer than the 25% risk at ten years,
-because censoring ends some people's follow-up before their event. The drawn times before
-censoring, `latent_event_time` and `censoring_time`, are kept for checking the simulation; a
-time is infinite when it falls after the last risk time.
+Fit survival models to `time`, the follow-up in days, and `event`, which is true when the event was
+observed. The observed event fraction is below the 25% risk at ten years, because censoring ends
+some people's follow-up before their event. The drawn times before censoring, `latent_event_time`
+and `censoring_time`, are kept for checking the simulation; a time is infinite when it falls after
+the last risk time.
 
 ## Calibration equations
 
 These are the models behind each outcome. Use them to work out what a setting implies, or to
-reproduce a dataset in your own code. Throughout, `z` is the standardised generating score and
+reimplement a model in your own code. Throughout, `z` is the standardised generating score and
 calibration chooses the intercept `alpha` where it appears.
 
 - **Binary.** The row probability is `expit(alpha + log(odds_ratio)*z)` for an
@@ -214,8 +215,9 @@ calibration chooses the intercept `alpha` where it appears.
   `S(t|z) = exp(-H0(t)*exp(log(hazard_ratio)*z))`. The baseline cumulative
   hazard `H0(t)` solves `mean(S(t|z)) = 1 - event_risk(t)` at each supplied
   risk time, with `event_risk(t)` the target before censoring.
-  `H0(t)` is linear between risk times, so the baseline rate is constant
-  within each interval. Censoring has its own cumulative hazard
-  `-log(1 - censoring_risk(t))`, also linear between risk times. Observed time
+  `H0(t)` rises linearly from zero between risk times and stays flat after
+  the last one, so the baseline rate is constant within each interval and zero
+  afterwards. Censoring has its own cumulative hazard
+  `-log(1 - censoring_risk(t))` at the same times, interpolated the same way. Observed time
   is the earliest of the drawn event time, the censoring time and the end of
   follow-up.

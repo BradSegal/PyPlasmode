@@ -1,7 +1,7 @@
 # API reference
 
-This page lists every public class and function with its arguments, defaults and errors, for
-looking up a detail once you know which function you need. The guides explain when to use each:
+Look up a function's arguments, defaults and errors here once you know which one you need. The
+guides explain when to use each:
 [Methods](methods.md) for generation and [Evaluation](evaluation.md) for scoring.
 
 Import every function, and every class you construct, from `pyplasmode`; the functions in
@@ -14,11 +14,12 @@ Import every function, and every class you construct, from `pyplasmode`; the fun
 - **Results are dataclasses.** `dataclasses.asdict` turns one into a plain dictionary, for
   example to save it as a row of a results table.
 
-`generate` draws one sample. To keep source rows apart between training, validation and test
-samples, call `partition_population` and then `generate_partitioned`. The outcome values are in
+To keep source rows apart between training, validation and test samples, call
+`partition_population` and then `generate_partitioned`. The outcome values are in
 `outcome.values` for binary, continuous and count outcomes, in `outcome.codes` for ordered
-categories, and in `outcome.time` and `outcome.event` for time to event. Times are in days. A
-drawn event or censoring time that falls after the last risk time is infinite.
+categories, and in `outcome.time` and `outcome.event` for time to event. Times are in days. The
+drawn event and censoring times before follow-up ends, `latent_event_time` and `censoring_time`,
+are infinite when they fall after the last risk time.
 
 ## Populations and sampling
 
@@ -47,7 +48,8 @@ drawn event or censoring time that falls after the last risk time is infinite.
 ## Tied selections and matched references
 
 When features tie at the cutoff of a selection, these functions share the remaining places
-among them. They also compute the recovery expected from a matched random selection
+among them. They also compute the recovery expected by chance, from random selections that keep
+the observed selection probabilities within each matching group
 ([Matched chance recovery](evaluation.md#matched-chance-recovery)).
 
 ::: pyplasmode.nominations

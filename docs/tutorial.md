@@ -1,21 +1,22 @@
 # Benchmarking feature selection
 
 Suppose a model predicts an outcome well and ranks its features by importance. You want to
-know whether its top-ranked features generated the outcome, or are correlates: features that
-are strongly correlated with the generating ones and so predict almost as well. On real data
-nobody knows which features generated the outcome, so the question cannot be answered.
+know whether its top-ranked features generated the outcome, or are correlates: features
+correlated with the generating ones, which predict almost as well when the correlation is
+strong. On real data the generating features are usually unknown, so the question cannot be
+answered.
 PyPlasmode makes it answerable by keeping your measurements and simulating the outcome from
 features you choose.
 
-The example measurements below are synthetic. For your own study, replace them with a numeric matrix that has one observation per
-row and one uniquely named feature per column. Install
+For your own study, replace the synthetic measurements below with a numeric matrix that has one
+observation per row and one uniquely named feature per column. Install
 [PyPlasmode](https://pypi.org/project/pyplasmode/), which brings NumPy and scikit-learn, and run
 the blocks in order, because each uses names defined by the ones before it.
 
 ## Create correlated measurements
 
-The question only arises when some features have correlates, so the example matrix contains
-two correlated pairs.
+To show whether a model picks generating features or their correlates, the example matrix
+contains two correlated pairs.
 
 ```python
 import numpy as np
@@ -33,17 +34,18 @@ names = ("A", "A_proxy", "B", "B_proxy", "C", "D", "E", "F")
 population = ppm.Population(X, names)
 ```
 
-The matrix starts as 4,000 rows of eight independent standard normal features. The two
+The matrix starts as eight independent standard normal features. The two
 assignments mix each of columns 1 and 3 with the column before it, in proportions that keep
 unit variance and give a correlation of 0.95. A_proxy is now a close stand-in for A, B_proxy
 for B, and C to F stay unrelated to everything. `Population` stores the matrix with its
 column names. The seed 17, like every seed on this page, fixes the random draws so that you
 see the numbers shown here.
 
-A model may select A_proxy in place of A and lose little prediction. Whether that counts as
-finding the signal depends on your question, so you declare which features belong together:
-each `FeatureSet` names one group, and `FeatureSets` collects the groups. The signal below is
-defined on these groups, and recovery can then be scored by group as well as by feature.
+A model may select A_proxy in place of A and lose little prediction. Whether that counts as finding
+the signal depends on your question, so you declare which features belong together: each
+`FeatureSet` names one group, and `FeatureSets` collects the groups. The signal below takes its
+generating features from these groups, and recovery can then be scored by group as well as by
+feature.
 
 ```python
 groups = ppm.FeatureSets(
@@ -59,8 +61,8 @@ print(aligned.mapped, aligned.unmapped)
 
 `groups.align(population)` matches the group members against the matrix columns. `mapped`
 lists the members it found and `unmapped` the ones it did not. On your own data, groups often
-come from an annotation file, and a name in `unmapped` is a member whose spelling matches no
-column.
+come from an annotation file, and a name in `unmapped` is a member that matches no column, because
+it is absent or spelt differently.
 
 ## Generate an outcome from known features
 
@@ -90,18 +92,17 @@ print(train.truth.direct_features)
 of 60%, 20% and 20%. Splitting before anything is simulated keeps every observation used to fit
 the model out of the rows used to judge it.
 
-`generate_partitioned` then draws a sample from each pool and simulates an outcome for every
-row. The sample sizes equal the pool sizes, and drawing without replacement uses each row once.
-Drawing with replacement instead lets you simulate a study larger than your data.
-
-The two specifications define the outcome:
+`generate_partitioned` then draws a sample from each pool and simulates an outcome for every row,
+calibrating the three samples together. The sample sizes equal the pool sizes, and drawing without
+replacement uses each row once. Drawing with replacement instead lets you simulate a study larger
+than your data.
 
 - `CorrelatedTruth` builds the signal from the groups. One member of each group generates the
   outcome; the API calls it the group's *sentinel*, here A and B. The *generating score* is
   the number computed for each row from the generating features: here the sum of standardised
   A and B, rescaled to unit standard deviation.
 - `BinaryOutcome(probability=0.15, odds_ratio=2.0)` gives the outcome to 15% of rows on average
-  and doubles its odds for each standard deviation of the generating score.
+  across the three samples and doubles its odds for each standard deviation of the generating score.
 
 `train.truth` records what a model should find. Its `direct_features` are the features a
 selection should contain: A and B.
@@ -109,8 +110,7 @@ selection should contain: A and B.
 ## Fit, tune and explain the model
 
 PyPlasmode does not fit models. You fit one with your own tools and hand back its predictions
-and its importance ranking. Here it is a logistic regression whose regularisation strength is
-chosen by cross-validation.
+and its importance ranking. Here it is a cross-validated logistic regression.
 
 ```python
 model = GridSearchCV(
@@ -135,23 +135,22 @@ print(exact.recall, exact.precision, group.group_recall)
 # 1.0 1.0 1.0
 ```
 
-The steps:
-
-1. `GridSearchCV` tries five regularisation strengths from 10⁻⁴ to 10⁴ and keeps the one with
-   the best five-fold cross-validated AUC on the training sample. The scaler sits inside the
-   pipeline so that it is [refitted within each fold](https://scikit-learn.org/stable/common_pitfalls.html#data-leakage);
-   fitted once on all training rows, it would carry information from each fold's held-out rows
-   into the fit. The winning
-   pipeline is then refitted on all training rows. Because cross-validation does the tuning,
+1. `GridSearchCV` tries five regularisation strengths from 10⁻⁴ to 10⁴ and keeps the one with the
+   best five-fold cross-validated AUC on the training sample. The scaler sits inside the pipeline so
+   that it is [refitted within each
+   fold](https://scikit-learn.org/stable/common_pitfalls.html#data-leakage); fitted once on all
+   training rows, it would carry information from each fold's held-out rows into the fit. The
+   winning pipeline is then refitted on all training rows. Because cross-validation does the tuning,
    the validation sample is not needed.
 2. `evaluate_prediction` scores the model's predicted probabilities on the test sample, which
-   nothing else has touched.
+   played no part in fitting or tuning.
 3. The absolute fitted coefficients serve as importance scores. The inputs are standardised,
    so they compare features on one scale. `ranking` orders the features from most to least
-   important. Any model's importance scores work the same way from here on.
+   important. Any model's importance scores work the same way from here on, provided they are finite
+   and not negative; take absolute values of signed scores.
 4. `evaluate_ranking` and `evaluate_groups` score the top two features of the ranking against
-   `train.truth`. `depths=(2,)` asks for the top two; pass several depths to score several list
-   lengths at once, and `at_depth[0]` picks the first.
+   `train.truth`. `depths=(2,)` asks for the top two, and `at_depth[0]` picks that
+   result.
 
 The test-set AUC, the area under the ROC curve, is 0.686: the probability that the model gives
 a randomly chosen row with the outcome a higher prediction than one without it, where 0.5 is
@@ -224,7 +223,7 @@ print(empirical.chance_adjusted_recovery, empirical.admissible_panel_count)
 The first three lines compute the absolute correlation between every pair of features,
 set each feature's correlation with itself to zero, and keep each feature's strongest
 correlation with another. `np.digitize` then sorts features into three strata: below 0.3,
-0.3 to 0.7, and above 0.7. The rule recovers the hand-made strata, so the result is the same.
+0.3 to 0.7, and 0.7 or above. The rule recovers the hand-made strata, so the result is the same.
 
 Three things keep the comparison honest:
 
@@ -278,19 +277,21 @@ would raise an error. Recovery is measured in two other ways instead:
 - `evaluate_module` asks what share of the total generating weight the selection carries. A
   and B carry half, because A_proxy and B_proxy carry the other half.
 
-The `seed` argument is required but matters only when the library picks features for you.
+The `seed` argument is required but matters only when the library picks features for you or a
+custom signal draws random numbers.
 
 To benchmark a method on either structure, pass the specification as `truth` to
-`generate_partitioned` and fit again. One simulated dataset gives one draw of each result, so
-repeat the whole comparison on independently seeded datasets and report prediction, precision
-and recovery across them. Include a null signal (`NullTruth`), because a method that selects
-the same features when nothing generates the outcome is finding structure in the
-measurements, not the signal. For continuous responses, counts, ordered categories and
-time-to-event data, see [Outcomes](outcomes.md).
+`generate_partitioned` and fit again. Repeat the comparison with independent seeds, because one
+simulated dataset gives one draw of each result, and report prediction, precision and recovery
+across the repeats. Include a null signal (`NullTruth`), because a method that selects the same
+features when nothing generates the outcome is selecting by something other than the signal, such as
+structure in the measurements or a fixed preference of its own. For continuous responses, counts,
+ordered categories and time-to-event data, see [Outcomes](outcomes.md).
 
 ## Choose discrimination and compare refits
 
-The comparison so far used one effect size, one fit and one dataset. Each of these extends it:
+The comparison so far used one effect size, one fit and one dataset, so it cannot show whether
+the result holds beyond them. Each of these extends it:
 
 - **Set difficulty as an AUC.** `BinaryOutcome(probability=0.15, target_auc=0.7)` solves for
   the odds ratio that gives the generating score an expected AUC of 0.7, so you choose how

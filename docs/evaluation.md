@@ -1,7 +1,7 @@
 # Evaluation
 
 A simulation lets you ask two things of a fitted method: how well it predicts the outcome, and
-whether it relied on the features that produced the outcome. Prediction metrics answer the
+whether it selected the features that produced the outcome. Prediction metrics answer the
 first. Recovery metrics answer the second, which only a simulation can, because only there is
 the signal known: the *generating features* whose values produced the outcome. The API calls
 the signal `truth`. A *panel* is the subset of
@@ -32,15 +32,15 @@ when follow-up is censored, and put an interval on the difference between two fi
 
 ## Feature and group recovery
 
-The first question about a fitted method is whether it selected the features that generated
-the outcome. *Recovery* answers it: the fraction of the generating features, of their groups or
-of their weight that the method's selection contains.
+*Recovery* answers whether a method selected the features that generated the outcome: it is the
+fraction of the generating features, of their groups or of their weight that the method's
+selection contains.
 
-The recovery functions take a *ranking*: a tuple of every feature once, most important first,
-such as the features sorted by a model's importance scores. For each `k` in `depths` they treat
-the first `k` features as the selection and score it, so one call shows how recovery grows as
-you allow a larger panel. If several features have the same importance score, their order in
-the ranking is arbitrary and the recovery would depend on it. For tied scores, use
+The recovery functions take a *ranking*: a tuple of every feature once, most important first, such
+as the features sorted by a model's importance scores. For each `k` in `depths`, given in increasing
+order, they treat the first `k` features as the selection and score it, so one call shows how
+recovery grows as you allow a larger panel. If several features have the same importance score,
+their order in the ranking is arbitrary and the recovery would depend on it. For tied scores, use
 [Rankings and scores](#rankings-and-scores) instead.
 
 In this example A and B generate the outcome, A with nine times B's weight, and a model ranks
@@ -65,56 +65,43 @@ print(module.at_depth[0].weighted_coverage)
 
 The population is 100 rows of four unrelated random features. `materialize_truth` computes the
 signal from its specification without simulating an outcome; its `seed` matters only for
-specifications that choose their own features. `evaluate_ranking` scores the top two features,
-A and C. A is one of the two generating features, so recovery is 0.5 (the API calls it
-`recall`). One of the two selected features is a generating feature, so precision is also 0.5.
-`evaluate_module` counts weight instead of features: A carries 9 of the total weight of 10, so
-weighted recovery is 0.9. `at_depth` holds one result per depth, in the order of `depths`.
+specifications that choose their own features or custom signals that draw random numbers.
+`evaluate_ranking` scores the top two features, A and C. A is one of the two generating features, so
+recovery is 0.5 (the API calls it `recall`). One of the two selected features is a generating
+feature, so precision is also 0.5. `evaluate_module` counts weight instead of features: A carries 9
+of the total weight of 10, so weighted recovery is 0.9. `at_depth` holds one result per depth, in
+the order of `depths`.
 
-A model can also select a *correlate* of a generating feature: a measured feature strongly
-correlated with it, which predicts almost as well. If C is a correlate of B, selecting C instead
-of B may be acceptable. A [correlated signal](truths.md#correlated) can declare groups such as
-{A} and {B, C}, and group recovery then counts a group as found when any member is selected.
-Each measure answers a different question:
-
-| Question | Example | Score | Function and field |
-| --- | --- | --- | --- |
-| Were the generating features found? | A and B generate risk; A and C are selected. | Recovery 1/2 | `evaluate_ranking`, `recall` |
-| Are the selected features generating features? | One of two selected features generates risk. | Precision 1/2 | `evaluate_ranking`, `precision` |
-| Were their groups found? | Groups are {A} and {B, C}; A and C are selected. | Group recovery 2/2 | `evaluate_groups`, `group_recall` |
-| How much generating weight is covered? | A has weight 9 and B weight 1; only A is selected. | Weighted recovery 9/10 | `evaluate_module`, `weighted_coverage` |
-| Was an interaction recovered? | The signal requires A and B; only A is selected. | Interaction recovery 0 | `evaluate_fractional_recovery`, `value` |
-
-The [worked recovery script](https://github.com/BradSegal/PyPlasmode/blob/main/examples/recovery.py)
-declares the groups {A} and {B, C} and runs the first four rows on this population.
-
-In symbols, with `S_k` the first `k` features of the ranking and `T` the set of generating
-features (`truth.direct_features`), recovery is `|S_k ∩ T| / |T|` and precision is
-`|S_k ∩ T| / k`; `false_discovery_fraction` is `1 - precision`. Weighted recovery divides the
-summed absolute weight of the selected generating features by that of all of them.
+A model can also select a *correlate* of a generating feature: a measured feature correlated with
+it, which predicts almost as well when the correlation is strong. If C is a correlate of B,
+selecting C instead of B may be acceptable. A [correlated signal](truths.md#correlated) can declare
+groups such as {A} and {B, C}, and group recovery then counts a group as found when any member is
+selected: with A and C selected, both groups are found. The [worked recovery
+script](https://github.com/BradSegal/PyPlasmode/blob/main/examples/recovery.py) scores exact, group
+and weighted recovery on this population.
 
 A signal spread over whole groups, such as group means or a
-[distributed signal](truths.md#distributed), has no individual generating features. `T` is then
-empty and `evaluate_ranking` raises `ValueError`, so measure such a signal with group or
-weighted recovery. No ranking function reports interaction recovery: make a selection with
-`nomination_from_scores` and pass it to `evaluate_fractional_recovery`, both described next.
+[distributed signal](truths.md#distributed), has no single feature to find, so
+`truth.direct_features` is empty and `evaluate_ranking` raises `ValueError`. Measure such a
+signal with group recovery, or with weighted recovery, which divides the absolute weight of the
+selected features by the total absolute weight in `truth.weights`.
 
 ## Rankings and scores
 
-Models often give several features the same importance score, for example when a tree model
-splits equally often on two copies of a measurement. A ranking must put one of them first, and
-recovery would then reward or penalise an order the model never chose. Instead,
-`nomination_from_scores(feature_ids, scores, depth=...)` shares the contested slots equally
-among the tied features. It takes non-negative importance scores and the number of slots, `depth`, and returns the selection (the
-API calls a selection a *nomination*). Each feature gets a *membership*: the probability that it
-is selected when the tied slots are filled at random. The cutoff is the `depth`-th highest
-positive score.
+Models often give several features the same importance score, for example when a tree model splits
+equally often on two copies of a measurement. A ranking must put one of them first, and recovery
+would then reward or penalise an order the model never chose. Instead,
+`nomination_from_scores(feature_ids, scores, depth=...)` shares the contested slots equally among
+the tied features. It takes non-negative importance scores and the number of slots, `depth`, and
+returns the selection (the API calls a selection a *nomination*). Each feature gets a *membership*:
+the probability that it is selected when the tied slots are filled at random. The cutoff is the
+`depth`-th highest positive score.
 
 - A score above the cutoff has membership 1.
 - Scores tied at the cutoff share the remaining slots equally.
-- Lower scores have membership 0. A zero score means the model did not use the feature, so it
-  is never selected, and with fewer than `depth` positive scores the selection is smaller than
-  `depth`.
+- Lower scores have membership 0. A zero score usually means the model did not use the feature,
+  so it is never selected, and with fewer than `depth` positive scores the selection is smaller
+  than `depth`.
 
 Here A scores highest and B, C and D tie for the two slots left at `depth=3`:
 
@@ -130,11 +117,10 @@ print(tied.selected_features, tied.achieved_size, round(tied.membership_budget, 
 them, here four features for three slots. `membership_budget` sums the memberships, which is
 the number of slots filled.
 
-`evaluate_fractional_recovery(nomination, truth, estimand=...)` averages recovery over every
-way of filling the tied slots and returns it in `value`. `estimand` names the recovery measure: `"exact"`
-(recovery of the generating features), `"group"`, `"module"` (weighted recovery) or
-`"interaction"`. With the signal from the previous section, in which A has weight 9 and B
-weight 1:
+`evaluate_fractional_recovery(nomination, truth, estimand=...)` averages recovery over every way of
+filling the tied slots and returns it in `value`. `estimand` names the recovery measure: `"exact"`
+(recovery of the generating features), `"group"`, `"module"` (weighted recovery) or `"interaction"`.
+With the signal from the previous section, in which A has weight 9 and B weight 1:
 
 ```python
 for estimand in ("exact", "module", "interaction"):
@@ -160,21 +146,12 @@ likely ways to fill the tied slots instead. In the example the two slots after A
 - An interaction of B and C would be recovered only by {B, C}: 1/3. That is less than the product
   of the memberships, 4/9, because once B takes a slot only one slot is left for C and D.
 
-In general, let `b` be the number of tied features, `r` the slots left for them and `t` the
-number of the group's or interaction's features among them. Group recovery is
-`1 - choose(b-t, r) / choose(b, r)`, one minus the share of fillings that miss the group.
-Interaction recovery is `choose(b-t, r-t) / choose(b, r)`, the share of fillings that contain
-both features. A group with a member above the cutoff is always found, and an interaction with
-a feature below the cutoff is never recovered.
-
-The call raises `ValueError` when the measure does not fit the signal or the selection:
-
-- group recovery needs a signal that declares groups, since there is nothing else to count;
-- interaction recovery needs a signal with exactly two generating features, the pair it checks;
-- the selection's features must be the population's features in the same order, so that each
-  membership is matched to the right feature. If your method scored only some of them, for
-  example after a filtering step, pass `allow_subset=True`: the unscored features get
-  membership 0, and every generating feature still counts in the denominator.
+Group recovery needs a signal that declares groups, and interaction recovery a signal with
+exactly two generating features; otherwise the call raises `ValueError`. The selection's
+features must be the population's features in the same order, so that each membership meets
+the right feature. If your method scored only some of them, for example after filtering, pass
+`allow_subset=True`: the unscored features get membership 0, and every generating feature still
+counts in the denominator.
 
 ## Matched chance recovery
 
@@ -183,29 +160,24 @@ generating features on average, so a method that recovers 40% has done 30 percen
 better than chance, not 40. *Recovery above chance* is the recovery observed minus the recovery
 expected from a random selection. The API calls it `chance_adjusted_recovery`.
 
-The random selection must be a fair comparison. Generating features and their correlates are
-often a distinctive kind of feature, for example strongly correlated with others. A method that
-prefers that kind of feature finds generating features more often than an unrestricted random
-selection, without using the outcome. So you label each feature with a *stratum* that describes
-its kind, and the random reference keeps the number of selections in each stratum and changes
-only which features within it are chosen. The tutorial works through this in
-[Compare with matched chance](tutorial.md#compare-with-matched-chance), and
-[Matching strata on empirical measurements](tutorial.md#matching-strata-on-empirical-measurements)
-derives strata from real measurements, with the cautions that keep the comparison honest. The
-chief one: build the strata from the measurements alone, never from the outcome, the signal or a
-fitted model, or the reference can be tuned to flatter a method.
+The random selection must be a fair comparison. Generating features often share a property, such as
+strong correlation with other features, and a method that favours that property beats unrestricted
+random selection without using the outcome. So you label each feature with a *stratum* that
+describes its kind, and the random reference keeps the number of selections in each stratum and
+changes only which features within it are chosen. [Compare with matched
+chance](tutorial.md#compare-with-matched-chance) works through an example, and [Matching strata on
+empirical measurements](tutorial.md#matching-strata-on-empirical-measurements) derives strata from
+measured features. Build the strata from the measurements alone, never from the outcome, the signal
+or a fitted model, or the reference can be tuned to flatter a method.
 
 `evaluate_matched_recovery(nomination, truth, estimand=..., strata=...)` takes a selection from
 `nomination_from_scores`, an `estimand` as in `evaluate_fractional_recovery`, and one stratum
-label per feature, in the order of the selection's features. It returns:
-
-- `observed_recovery`: the selection's recovery, as `evaluate_fractional_recovery` computes it;
-- `expected_recovery`: the mean recovery of the random reference;
-- `chance_adjusted_recovery`: the first minus the second. Zero means no better than chance and a
-  negative value means worse;
-- `admissible_panel_count`: the number of ways the reference can rearrange the selection within
-  its strata. At 1 the only rearrangement is the observed selection, so recovery above chance is
-  zero whatever the method did.
+label per feature, in the order of the selection's features. It returns the selection's
+`observed_recovery`, the random reference's `expected_recovery` and their difference,
+`chance_adjusted_recovery`: zero means no better than chance and a negative value worse.
+`admissible_panel_count` is the number of ways the reference can rearrange the selection within
+its strata. At 1 the only rearrangement is the observed selection, so recovery above chance is
+zero whatever the method did.
 
 Within each stratum the reference keeps the number of features with a positive score and the
 memberships, including shared memberships at a tie, and assigns them to the stratum's features
@@ -221,8 +193,8 @@ hit a large group than a small one.
 A method can recover generating features without using the outcome, for example by favouring
 high-variance features or hubs correlated with many others. Such a method also recovers signals
 it never saw. To test for this, take other signals on the same features and score the one
-selection against all of them: a method that uses the outcome recovers its own signal better
-than the others.
+selection against all of them: a selection driven by the outcome should recover its own signal
+better than the others.
 
 `evaluate_outcome_specificity` takes the selection, `own_truth` (the signal behind the outcome
 the method was fitted to) and `foreign_truths` (a tuple of other signals). It computes recovery
@@ -260,7 +232,9 @@ The signals must be comparable, so the call raises `ValueError` unless:
 
 - they have the same signal structure (`kind`) and the same features, so that one selection and
   one set of strata apply to all of them;
-- no generating feature belongs to two signals, because selecting it would count for both;
+- no feature that earns recovery credit belongs to two signals, because selecting it would count
+  for both. For group recovery this covers every group member, and for weighted recovery every
+  weighted feature;
 - they have the same number of targets (groups for `estimand="group"`, features otherwise),
   because finding one of two targets and one of ten are different achievements. Groups may
   differ in size, since the chance expectation accounts for it.
@@ -299,15 +273,15 @@ recovery.
 
 A method whose ranking changes each time you refit it, on bootstrap samples or cross-validation
 folds, cannot be relied on to select the same features on new data, even if one fit recovered
-well. `rank_stability` measures how similar two or more complete rankings of the same features
-are. It compares every pair of rankings and averages three measures:
+well. `rank_stability` compares every pair of two or more complete rankings of the same
+features and averages three measures:
 
 - `mean_leading_jaccard`: of the features in the first `depth` of either ranking, the share that
   are in the first `depth` of both. It ignores the order within those features.
 - `mean_spearman`: the Spearman correlation of the features' positions over the whole ranking:
   1 for the same order, -1 for the reverse.
 - `mean_rank_biased_overlap`: rank-biased overlap (RBO), which compares the whole ranking but
-  counts agreement near the top more heavily. It is 1 for identical rankings.
+  counts agreement near the top more heavily.
 
 Some leading features are shared by chance. Two random rankings of `n` features share
 `depth^2 / n` of their first `depth` features on average (`expected_random_intersection`), so
@@ -330,34 +304,25 @@ three that appear, so the Jaccard overlap is 1/3. Two random rankings of four fe
 2^2 / 4 = 1 of their first two on average, as these do, so the excess is zero. Swapping B and
 C lowers the Spearman correlation to 0.8.
 
-RBO for rankings of length `D` is `(1-p) sum(d=1..D, p^(d-1) A_d) + p^D A_D`, where `A_d` is the
-number of features shared by the first `d` of both rankings, divided by `d`. The persistence `p`
-(`persistence`, default 0.9) sets how fast the weight falls: each rank counts `p` times as much
-as the rank above it, so on average the score reads `1 / (1-p)` ranks deep, 10 at the default.
-Lower `persistence` to judge agreement over the top few features only. This is the
-extrapolated score in [Webber et al., Equation 23](references.md#ranking-comparison). The
-rankings here cannot contain ties; for tied rankings use
-[`rank_biased_overlap`](metrics.md#consensus-and-rank-biased-overlap).
+In RBO each rank counts `persistence` (default 0.9) times as much as the rank above it; lower
+it to judge agreement over the top few features only. RBO here is the extrapolated score in
+[Webber et al., Equation 23](references.md#ranking-comparison). The rankings cannot contain
+ties; for tied rankings use [`rank_biased_overlap`](metrics.md#consensus-and-rank-biased-overlap).
 
 ## Prediction and panels
 
 Recovery shows which features a method found; prediction metrics show whether the model built on
 them is useful. `evaluate_prediction(target, prediction, metric=...)` scores predictions you
-supply, using scikit-learn, and returns the score in `value`. It rejects data for which the
-metric is undefined instead of returning a misleading number. `metric` is one of:
+supply, using scikit-learn, and returns the score in `value`. `metric` is one of:
 
 - for a binary outcome, `"roc_auc"` (AUC, the area under the ROC curve), `"average_precision"`
   or `"log_loss"`;
 - for a continuous outcome, `"r2"` (R-squared) or `"rmse"` (root mean squared error).
 
-Targets and predictions must be finite, non-empty and of equal length. The call raises
-`ValueError` when the metric cannot be computed:
-
-- AUC compares positive with negative observations, so it needs both classes;
-- average precision needs at least one positive observation;
-- R-squared measures explained variation, so it needs at least two observations with different
-  targets;
-- log loss needs 0 or 1 labels and probabilities in `[0, 1]`, and works with a single class.
+Where the metric is undefined, the call raises `ValueError` rather than return a misleading
+number: AUC compares positive with negative observations, so it needs both classes; average
+precision needs at least one positive observation; and R-squared needs at least two different
+targets.
 
 A panel is worth having if it predicts nearly as well as a model that uses every feature.
 `evaluate_panel` scores a reference model's predictions and a panel's predictions on the same
@@ -383,23 +348,18 @@ lower is better.
 
 ## Signal reconstruction
 
-A panel of correlates can carry the generating score without containing the generating
-features. The *generating score* is the number computed for each row from the generating
-features (`truth.signal`). Recovery gives such a panel no credit, though it may predict as well
-as the generating features would. `evaluate_signal_reconstruction` measures this directly: it
-fits a linear regression from the panel to the generating score on some rows and measures the
-fit on others. An R-squared of 0.4 means the panel explains 40% of the score's variation on
-those rows.
+A panel of correlates can carry the generating score without containing the generating features. The
+*generating score* is the number computed for each row from the generating features
+(`truth.signal`). Recovery of the generating features gives such a panel no credit, though it may
+predict as well as they would. `evaluate_signal_reconstruction` measures this directly: it fits a
+linear regression from the panel to the generating score on some rows and measures the fit on
+others. An R-squared of 0.4 means the panel explains 40% of the score's variation on those rows.
 
-The function takes one matrix `X` with its `feature_ids`, the panel as `selected_features`, the
-score for every row of `X` as `signal`, and two disjoint sets of 0-based row indices into `X`:
-
-- `development_indices`: the rows on which missing values are filled with medians and the
-  regression is fitted;
-- `evaluation_indices`: the rows on which `r_squared` and `root_mean_squared_error` are computed.
-
-Fitting and measuring on different rows keeps a large panel from scoring well by fitting noise.
-Here the first 70 rows are for fitting and the last 30 for measuring:
+Pass the matrix, its feature IDs and the generating score in the same row order. The function
+fits on the rows in `development_indices`, filling missing values with medians from those rows,
+and scores only the rows in `evaluation_indices`. Fitting and measuring on different rows keeps
+a large panel from scoring well by fitting noise. Here the first 70 rows are for fitting and the
+last 30 for measuring, for A and for the unrelated C and D:
 
 ```python
 development = np.arange(70)
@@ -424,16 +384,17 @@ for selected in (("A",), ("C", "D")):
 
 A carries 9 of the 10 units of generating weight, so A alone reconstructs almost all of the
 score. C and D are unrelated to it: their R-squared is below zero, which means they predict the
-held-out score worse than its development mean would.
+held-out score worse than a constant at the held-out rows' own mean would.
 
-For generated training and test samples, stack them into one matrix:
+For training and test samples from one `generate_partitioned` call, whose generating scores
+share one scale, stack them into one matrix:
 `X = np.vstack([train.X, test.X])` and
 `signal = np.concatenate([train.truth.signal, test.truth.signal])`. The development rows are
 then `0` to `len(train.X) - 1` and the evaluation rows the rest.
 
-An empty panel predicts the development mean, so it scores an R-squared near zero and serves as
-a baseline. R-squared measures explained variation, so the evaluation rows must number at least
-two and have a generating score that varies across them.
+An empty panel predicts the development mean, so it scores an R-squared at or just below zero and
+serves as a baseline. R-squared measures explained variation, so the evaluation rows must number at
+least two and have a generating score that varies across them.
 
 ## Repeated simulations
 
@@ -444,7 +405,7 @@ much a result depends on the draw, run the design several times and summarise th
 `summarize_replicates` takes one estimate per successful simulation, at least two, and returns
 their mean, its Monte Carlo standard error and a 95% t interval. Pass the number of failed
 simulations as `failure_count`. The summary uses only the successful ones, and records the count
-so that a reader can see how many are missing.
+so that a reader can see how many are missing. Here four simulations gave an AUC and one failed:
 
 ```python
 replicate_summary = ppm.summarize_replicates([0.71, 0.68, 0.74, 0.70], failure_count=1)
@@ -457,10 +418,8 @@ print(
 # 0.668 0.747
 ```
 
-For `R` successful simulations, the standard error is `sd / sqrt(R)`, where `sd` is the standard
-deviation of the estimates, and the interval is the mean plus or minus `t_(R-1, 0.975)` times the
-standard error, with `t_(R-1, 0.975)` the 97.5th percentile of the t distribution with `R - 1`
-degrees of freedom. The interval describes uncertainty about the design's average result, so it
+The standard error is the standard deviation of the estimates divided by the square root of
+their number. The interval describes uncertainty about the design's average result, so it
 narrows as you run more simulations. Report it with your results so a reader can tell whether a
 difference between methods is larger than the simulation noise
 ([Morris et al., Section 5.2](references.md#simulation-studies)).
@@ -502,8 +461,8 @@ AUC and the left procedure for a loss, where lower is better.
   `allow_unmatched=True`; the result reports how many IDs each side had unmatched.
 - **Mark a failed run with `None`** instead of leaving it out. The result counts failures in each
   procedure and the pairs with at least one failure, and the summary uses only pairs in which
-  both succeeded. A procedure that fails on hard datasets therefore looks better than it is, so
-  report the failure counts and their causes beside the difference.
+  both succeeded. If failures fall on hard datasets, the difference then describes only the
+  easier ones, so report the failure counts and their causes beside it.
 - **At least two complete pairs are needed**, since a standard error needs two differences.
 - **Each dataset must be generated independently.** Refits or observations within one dataset
   share its draw and are not independent replicates. For uncertainty over the observations of

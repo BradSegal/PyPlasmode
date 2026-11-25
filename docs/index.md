@@ -1,19 +1,19 @@
 # PyPlasmode
 
-A model can predict an outcome well while ranking the wrong features first. On real data you
-cannot tell, because nobody knows which features generated the outcome. PyPlasmode makes that
-known: you provide a numeric feature matrix, choose which of its features generate an outcome,
-and simulate the outcome. You can then measure how well a modelling procedure predicts the
-outcome and how many of the generating features its ranking puts first.
+A model can predict an outcome well while ranking the wrong features first. On real data you usually
+cannot tell, because the features that generated the outcome are unknown. PyPlasmode makes that
+known: you provide a numeric feature matrix, choose which of its features generate an outcome, and
+simulate the outcome. You can then measure how well a modelling procedure predicts the outcome and
+how many of the generating features its ranking puts first.
 
-Measured features combined with a simulated outcome are called a *plasmode*. Keeping the
-measured features preserves their correlations, which is what makes selecting the right
+Measured features combined with a simulated outcome are called a *plasmode*. Drawing whole
+rows of measured features keeps their correlations, which is what makes selecting the right
 features hard in practice, while the simulation lets you set the signal, its strength and how
 common the outcome is. The library was built for biomarker studies and accepts any numeric
-table of observations and named features.
+table of observations and uniquely named features, with missing values as NaN.
 
-PyPlasmode does not fit models. You fit, tune and explain them with your existing tools and
-hand back their predictions, rankings or selected features for evaluation.
+PyPlasmode does not fit models: you fit them with your own tools and pass back their
+predictions, rankings or selected features.
 
 The [feature-selection tutorial](tutorial.md) is the place to start: it fits a model, ranks
 its features and compares their recovery with random selection. The
@@ -45,7 +45,7 @@ Three scripts show a complete run on synthetic data, on your own machine:
 ## A complete comparison
 
 A benchmark compares what a procedure predicts and selects with the signal that generated the
-outcome. It rests on five terms:
+outcome.
 
 - The **signal** is what you specify: which features generate the outcome, in what structure
   and how strongly.
@@ -54,8 +54,6 @@ outcome. It rests on five terms:
 - **Recovery** is the fraction of the generating features in a selection.
 - A **panel** is a selected subset of features used to predict.
 
-A study runs in six steps:
-
 1. Supply a numeric matrix with a name for each feature. Recovery is scored by matching your
    model's feature names against the signal's, so the names must be the same in both.
 2. Choose a [signal](truths.md) and an [outcome in observable units](outcomes.md), such as an
@@ -63,10 +61,11 @@ A study runs in six steps:
 3. Split the source rows into training, validation and test pools before drawing samples.
    Otherwise the same measured row could appear in both the rows a model is fitted on and the
    rows it is judged on.
-4. Generate a sample from each pool, then fit and tune your models on the training and
-   validation samples.
+4. Generate a sample from each pool. Fit on the training sample and tune on the validation
+   sample, so that the test sample has shaped neither decision.
 5. Evaluate predictions on the test sample and [feature recovery](evaluation.md) from the
-   rankings, including rankings with tied importance scores.
+   rankings. Where importance scores tie, score the tied features together, so that an
+   arbitrary order among them does not change recovery.
 6. Repeat with independent seeds. One simulated dataset gives one draw of each result; repeats
    show how much it varies.
 
@@ -74,6 +73,9 @@ To compare methods, run each on the same generated samples, so that differences 
 come from the methods and not from the data. See [Methods](methods.md).
 
 ## Return types
+
+A generated dataset gives you the outcomes to fit, the targets to score against and the
+indices that link each row to your source data.
 
 `generate` simulates one dataset and returns a `Plasmode`. It holds the sampled measurements
 (`X`, with column names in `feature_ids`), the simulated `outcome`, and in `truth` the
@@ -89,6 +91,6 @@ index: its zero-based row position in the matrix it was drawn from. In a `Plasmo
 original unsplit `Population` instead, use `training_source_indices`,
 `validation_source_indices` or `evaluation_source_indices`.
 
-The [API reference](api.md) lists every result field. Before using empirical measurements,
+Before using empirical measurements,
 read the [data handling guidance](privacy-and-limitations.md), because simulated datasets can
 reproduce individual records.

@@ -3,12 +3,11 @@
 ## Generation process
 
 To test whether a method finds the features that drive an outcome, you need data in which you
-know the answer. Real measurements have realistic distributions, correlations and missing
-values, but nobody knows which features drive a real outcome. A plasmode keeps your real feature
-rows and replaces the outcome with one generated from features you choose, the *generating
-features*. You can then measure whether a method predicts the outcome and whether it recovers
-the generating features.
-[Gadbury et al.](references.md#plasmode-simulation) illustrate the plasmode approach;
+know the answer, and a real outcome never tells you. A plasmode keeps your real feature rows, with
+their distributions, correlations and missing values, and replaces the outcome with one generated
+from features you choose, the *generating features*. You can then measure whether a method
+predicts the outcome and whether it recovers the generating features.
+[Gadbury et al.](references.md#plasmode-simulation) illustrate the approach;
 [Schreck et al.](references.md#plasmode-simulation) describe the combination of row resampling
 and outcome generation used here; [Morris et al.](references.md#simulation-studies) give the
 ADEMP framework for planning such a simulation study.
@@ -17,39 +16,35 @@ ADEMP framework for planning such a simulation study.
 
 Each call to `generate` takes three steps:
 
-1. **Draw whole rows from your matrix.** By default rows are drawn with replacement, so samples
-   vary from draw to draw as bootstrap samples do. With
-   `sampling_method="without_replacement"` each source row appears at most once; use it when a
-   repeated row would distort what you measure, for example when you split one sample yourself
-   and copies of a row could land on both sides.
-2. **Compute the generating score** from the generating features on the sampled rows
-   ([Signal construction](#signal-construction)). The returned matrix `X` is left as drawn,
-   missing values included, so your preprocessing meets the same gaps it would meet on the
-   real data.
+1. **Draw whole rows from your matrix**, with replacement by default, so samples vary from draw
+   to draw as bootstrap samples do. With `sampling_method="without_replacement"` each source row
+   appears at most once; use it when a repeated row would distort what you measure, for example
+   when you split one sample yourself and copies of a row could land on both sides.
+2. **Compute the generating score** on the sampled rows
+   ([Signal construction](#signal-construction)).
 3. **Calibrate the outcome model and draw one outcome per row**
    ([Numerical calibration](#numerical-calibration-and-random-variation)).
 
-Fitting, tuning and explaining a model stay in your own tools. PyPlasmode's evaluators then
-take the predictions and feature selections those tools produce.
+Fit, tune and explain models in your own tools, then pass their predictions and feature
+selections to PyPlasmode's evaluators.
 
 ## Correlation and missingness
 
 Feature selection is hard on real data because measurements are correlated: a model can pick
 a correlate of a generating feature in place of the feature itself. Missing values also follow
 patterns that depend on other measurements. Each sampled row is a whole source row, so a sample
-keeps the correlations and missingness patterns of your data exactly, and the method you test
-faces the problem it would face on the real measurements. The consequence is that a sample
-contains only combinations of values that occur in the source.
+keeps the combinations of values and missing entries that occur in your data, and the method you
+test faces the problem it would face on the real measurements. Which rows are drawn, and how
+often, varies between draws, so a sample's correlations and missingness rates differ somewhat
+from the source's.
 
 ## Training, validation and test samples
 
-A model must be tested on rows it never saw while being fitted or tuned. If you draw one sample
-with replacement and split it afterwards, copies of the same source row can land in both the
-training and the test sample, and the model is tested on rows it has already seen. To prevent
-this, split the source rows first with `partition_population`, then draw each sample from its
-own pool with `generate_partitioned`. A source row then belongs to one pool: it can repeat
-within the training sample but never appears in the test sample. The API calls the test sample
-`evaluation`.
+A model must be tested on rows it never saw while being fitted or tuned. If you split one sample
+drawn with replacement, copies of a source row can land in both training and test. Instead, split
+the source rows first with `partition_population`, then draw each sample from its own pool with
+`generate_partitioned`: a source row can then repeat within one sample but never appears in two.
+The API calls the test sample `evaluation`.
 
 ```python
 import numpy as np
@@ -71,51 +66,51 @@ print(samples.evaluation.source_indices[0], samples.evaluation_source_indices[0]
 print(samples.evaluation.X[0])  # [8.]
 ```
 
-The population has twelve rows, and the value of A in each is its row number, so you can see
-where a sampled row came from. The fractions 0.5 and 0.25 split the rows into pools of six, three
-and three. Each sample records where its rows came from at two levels. `samples.evaluation.source_indices` counts within the evaluation pool: the first
-test row is row 1 of `partition.evaluation`. `samples.evaluation_source_indices` counts within
-your original `Population`: the same row is source row 8, which its value confirms. Use the
-second to link sampled rows back to your own records. Training and validation have the same two
-fields.
+The value of A in each of the twelve rows is its row number, so you can see where a sampled row
+came from. The fractions 0.5 and 0.25 give pools of six, three and three rows.
+`samples.evaluation.source_indices` counts within the test pool: the first test row is row 1 of
+`partition.evaluation`. `samples.evaluation_source_indices` counts within your original
+`Population`: the same row is source row 8, as its value confirms. Use the second to link sampled
+rows to your own records; training and validation have the same two fields.
 
 `partition_population` splits individual rows. If one person or cluster contributes several
 rows, those rows resemble each other and leak between pools in the same way as copies. Split
 them by person or cluster yourself and build the `PopulationPartition` from your own row indices.
 
-When PyPlasmode chooses the generating features for you, with `SparseTruth(count=...)` or with
-`CorrelatedTruth` and no `sentinels`, it chooses them on the training pool only, so that no test
-row influences the choice. All three samples then use the same generating features. A
-correlated signal draws one member of each group at random; if that member is constant or
-entirely missing in the training pool, generation raises `ValueError`, because such a feature
-cannot carry a signal.
+When PyPlasmode chooses the generating features for you, with `SparseTruth(count=...)`, or with
+`CorrelatedTruth` in its default sentinel form and no `sentinels`, `generate_partitioned` chooses
+them on the rows of the training pool only, so that no test row influences the choice. All three
+samples then use the same generating features. The sentinel form draws one member of each group
+at random; if that member is constant or entirely missing in the training pool, generation raises
+`ValueError`, because such a feature cannot carry a signal.
 
-The generating score is standardised, and the outcome calibrated, on the training, validation and
-test rows together, so that one generating model produces all three samples. Two consequences
-follow:
+The generating score is built, and the outcome calibrated, on the sampled training, validation
+and test rows together, so that one generating model produces all three samples. The medians that
+fill missing values, both standardisations and the intercept or baseline all come from the
+combined rows. Two consequences follow:
 
-- **Targets hold on the combined rows.** With `probability=0.15`, the event fraction across all
-  three samples is close to 15%, and the fraction in one sample can differ from it.
-- **The test rows are part of the generating model.** Drawing different test rows changes the
-  score's scaling and the outcome's baseline for the training rows as well.
+- **Targets hold on the combined rows.** With `probability=0.15`, the event probabilities average
+  15% across all three samples, and the fraction in one sample can differ from it.
+- **The test rows are part of the generating model.** Drawing different test rows can change the
+  training rows' generating scores and outcome probabilities.
 
 This scaling belongs to the simulation. Fit your model's own preprocessing on the training
 sample only, as on real data, so that no test information reaches the model.
 
-To compare a method across populations, for example two cohorts, call `generate` once per
-population with the same effect, such as the same odds ratio. Each call standardises the score
-and calibrates the baseline on its own rows, so the effect is per standard deviation of each
-population's own score. PyPlasmode has no option to apply one fixed generating model to several
-populations: to do that, compute the score and draw the outcomes in your own code. With
+To compare a method across populations, such as two cohorts, call `generate` once per population
+with the same effect. Each call standardises the score and calibrates the baseline on its own
+rows, so the effect is per standard deviation of that population's score. To apply one fixed
+generating model to several populations, compute the score and draw the outcomes in your own
+code. With
 `target_auc`, each call also solves its own effect
 ([AUC calibration](calibration.md#what-is-solved)).
 
 ## Signal construction
 
-The outcome is drawn from the generating score (`truth.signal` in code), the number computed for
-each row from the generating features. Every effect you set, such as an odds ratio, is per
-standard deviation of this score. PyPlasmode builds the score so that this unit means the same
-whatever the features' units and whichever signal structure you choose. For the built-in
+Every effect you set, such as an odds ratio, is per standard deviation of the generating score
+(`truth.signal` in code), the number computed for each row from the generating features.
+PyPlasmode builds the score so that this unit means the same whatever the features' units and
+signal structure. For the built-in
 signals it takes four steps:
 
 1. **Fill missing values** of each generating feature with that feature's median, so the score
@@ -127,18 +122,17 @@ signals it takes four steps:
    odds ratio of 2 doubles the odds of the event for each one-standard-deviation increase in
    the score. A null score stays zero.
 
-For example, with weights 2 and −1, standardised values A = 1 and B = 0.5 give
-`2*1 - 0.5 = 1.5` at step 3. Step 4 then rescales the score, so only the ratio of the weights
-matters: weights (4, −2) give the same score as (2, −1).
+Because step 4 rescales the score, only the ratio of the weights matters: weights (4, −2) give
+the same score as (2, −1).
 
 A generating feature you name that is constant or entirely missing raises `ValueError`, because
-it cannot be standardised and would contribute nothing. Automatic sparse selection skips such
+it cannot be standardised. Automatic sparse selection skips such
 features.
 
 In the table, a *sentinel* is the one generating feature taken from a group of correlated
 features, its *correlates* are the other members of the group, and a *module* is a named
-`FeatureSet` whose members all contribute. [Generating signals](truths.md) explains when to
-choose each structure.
+`FeatureSet` whose members all contribute ([Generating signals](truths.md) explains when to
+choose each).
 
 | Signal structure | How to construct the score | What it tests |
 | --- | --- | --- |
@@ -151,28 +145,30 @@ choose each structure.
 
 `SparseTruth(count=k)` picks k generating features for you. It visits the features in an order
 set by the seed and accepts a feature only if its absolute Pearson correlation with every feature
-already accepted is at most `max_absolute_correlation` (default 0.7). The limit stops two
-generating features from being near-copies; otherwise a model that selected one would be scored
-as missing the other although the two carry the same information. If fewer than k features pass,
-generation raises `ValueError`: ask for fewer features, raise the limit or name the features
-yourself.
+already accepted, computed on the median-filled values, is at most `max_absolute_correlation`
+(default 0.7). The limit stops two generating features from being near-copies; otherwise a model
+that selected one would be scored as missing the other although the two carry the same
+information. The search does not backtrack, so it can stop short of k even when k such features
+exist. Generation then raises `ValueError`: ask for fewer features, raise the limit or name the
+features yourself.
 
 ## Numerical calibration and random variation
 
 Each simulated dataset should represent the scenario you specified. PyPlasmode checks this twice.
 
-First, calibration sets the model's intercept or baseline so that the *expected* outcome over
-the sampled rows equals your target exactly. With `probability=0.15`, the rows' event
-probabilities average 15%. The drawn outcomes vary around that, so one dataset might contain
-14.6% events. [Calibration equations](outcomes.md#calibration-equations) gives the model for
-each outcome. If no intercept meets the target with the effect you set, generation raises
-`CalibrationError`. For example, a risk ratio of 3 with `probability=0.4` pushes the
-probabilities of the highest-scoring rows above one. Lower the risk ratio, or use an odds ratio,
-whose probabilities cannot leave the range 0 to 1.
+First, calibration sets the model's intercept or baseline so that the *expected* outcome over the
+sampled rows equals your target, to numerical precision. With `probability=0.15`, the rows' event
+probabilities average 15%. The drawn outcomes vary around that, so one dataset might contain 14.6%
+events. If the model ([Calibration equations](outcomes.md#calibration-equations)) cannot meet the
+target with the effect you set, generation raises `CalibrationError`. For example, a risk ratio of 3
+with `probability=0.4` pushes the probabilities of the highest-scoring rows above one when the score
+is normally distributed. Lower the risk ratio, or use an odds ratio, whose probabilities cannot
+leave the range 0 to 1.
 
 Second, after drawing, PyPlasmode compares each observed summary with its target and raises
-`RealizationError` if they differ by more than about six standard errors. A correct draw almost
-never fails this, so a failure marks a dataset that does not represent your scenario. With `p`
+`RealizationError` if they differ by more than about six standard errors. The expected value
+already equals the target, so a failure means this one draw landed far from it by chance, which
+is rare, not that your specification or data are wrong. With `p`
 the target probability and `n` the number of rows, the tolerances are:
 
 - **Probabilities** (the binary event fraction, each ordered category's fraction, and survival
@@ -208,22 +204,25 @@ summary = ppm.summarize_replicates(event_fractions, failure_count=failure_count)
 print(summary.replicate_count, summary.failure_count)  # 3 0
 ```
 
-The loop draws three datasets, keeps each event fraction, and counts a failed draw instead of
-letting the error stop the study. All three pass here. `summarize_replicates` reports the
-failure count next to the mean of the successful draws, so a reader of your results sees both.
+The loop draws three 12-row datasets with a null signal and a 50% event probability and counts any
+failure instead of letting it stop the study. With 12 rows the tolerance is 0.87, wider than any
+possible distance from 50%, so these draws cannot fail; the pattern is what matters.
+`summarize_replicates` reports the failure count next to the mean of the successful draws, so a
+reader of your results sees both.
 
 ## Discrimination and repeated selections
 
 To set how hard the prediction task is, set `target_auc` on a binary or time-to-event outcome in
-place of an odds or hazard ratio. The AUC (area under the ROC curve) is then that of the
-generating score: the probability that it ranks a random case above a random control. No model
-can expect to rank better than the true risks, so this AUC is the ceiling for every method you
-test. PyPlasmode solves for the odds or hazard ratio that gives it
+place of an odds or hazard ratio. The AUC (area under the ROC curve) is then the expected AUC of
+the true risks: the probability that a random case has a higher risk than a random control, with
+ties counted as half. PyPlasmode solves for the odds or hazard ratio that gives it
 ([AUC calibration](calibration.md)).
 
-`outcome.calibration.oracle_auc` is the AUC the generating score is expected to reach (the API
-calls it the *oracle* AUC). The AUC in one dataset differs from it by chance, most when events
-are few. Measure it by scoring the generating score against the drawn outcomes:
+`outcome.calibration.oracle_auc` is this expected AUC (the API calls it the *oracle* AUC). The
+AUC in one dataset differs from it by chance, most when events are few. Measure it by scoring the
+true risks against the drawn outcomes. The generating score ranks rows as the true risks do when
+the effect raises risk, as here; otherwise multiply it by `calibration["signal_coefficient"]`,
+which is then negative.
 
 ```python
 cohort = ppm.Population(np.random.default_rng(5).normal(size=(2_000, 3)), ("A", "B", "C"))
@@ -242,9 +241,9 @@ for rows in (2_000, 200):
 # 200 18 0.75 0.799
 ```
 
-With 2,000 rows and 175 events the realised AUC is 0.754; with 200 rows and 18 events it is
-0.799. Compare a model's AUC with the realised AUC of the generating score in the same dataset,
-not with the target, because both share that dataset's luck.
+The smaller draw, with 18 events, lands further from the target. Compare a model's AUC with the
+realised AUC of the generating score in the same dataset, not with the target, because both share
+that dataset's luck.
 
 When you refit a model on resampled data, its selected features change from fit to fit.
 `selection_stability` measures how much the selections agree and `consensus_ranking` combines

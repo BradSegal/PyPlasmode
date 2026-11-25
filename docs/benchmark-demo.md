@@ -2,10 +2,9 @@
 
 A model that predicts well is often taken to have found the features that drive the outcome.
 [`examples/benchmark_recovery_demo.py`](https://github.com/BradSegal/PyPlasmode/blob/main/examples/benchmark_recovery_demo.py)
-tests that assumption where the answer is known. Cox, ridge and XGBoost each predict a
-time-to-event outcome and select 20 features, and the script compares their prediction with
-how many generating features they select. It generates all features and outcomes in memory,
-so it needs no downloads.
+tests that assumption where the answer is known. Cox, ridge and XGBoost each predict a time-to-event
+outcome and select 20 features, and the script compares their prediction with how many generating
+features they select. It generates all features and outcomes in memory, so it needs no downloads.
 
 XGBoost needs the OpenMP runtime, which macOS lacks; on a Mac, install it first with
 `brew install libomp`. Then install the optional model libraries, download the linked script
@@ -19,11 +18,9 @@ python benchmark_recovery_demo.py --output benchmark-results.csv
 The optional libraries are tested on Python 3.12 to 3.15 on Linux, and on Python 3.13 on
 Windows and macOS.
 
-The default run uses 3,000 rows and 120 features on one processor thread and takes a few
-minutes on a laptop. `--rows 1000` gives a faster, smaller run, and `--seed` changes the random
-seed from its default of 42. The console prints a table of all 27 comparisons: three signal
-structures, three levels of prediction difficulty and three methods. The optional CSV holds the
-same comparisons at full precision.
+The default run uses 3,000 rows on one processor thread and takes a few minutes on a laptop.
+`--rows 1000` gives a faster, smaller run, and `--seed` changes the random seed from its default
+of 42. The optional CSV holds the results at full precision.
 
 ## What is compared
 
@@ -47,13 +44,13 @@ features can carry at most 20 of the 60 equal weights, so its recovery cannot ex
 before chance is subtracted. Because each structure has its own measure and maximum, compare
 recovery within a structure, not between structures.
 
-The outcome is time to an event. Ten-year event risk is 0.20 and eleven-year risk is 0.22.
-Follow-up ends at eleven years, and nobody leaves earlier. Prediction difficulty is set
-through `TimeToEventOutcome(target_auc=...)`: the expected ten-year AUC of the generating score
-(the number computed for each row from the generating features) is 0.60, 0.70 or 0.80. The
-outcome is simulated after this calibration, so the AUC realised on the test rows varies around
-the requested value. All nine settings use the same random draws, so differences between them
-come from the settings rather than from chance.
+Ten-year event risk is 0.20 and eleven-year risk is 0.22. Follow-up ends at eleven years, and nobody
+leaves earlier. Prediction difficulty is set through `TimeToEventOutcome(target_auc=...)`: the
+expected ten-year AUC of the generating score (the number computed for each row from the generating
+features) is 0.60, 0.70 or 0.80. The outcome is simulated after this calibration, so the AUC
+realised on the test rows varies around the requested value. All nine settings use the same rows,
+split and random draws, so differences between them do not come from different draws. They still
+come from one draw: another seed can give different contrasts.
 
 A fixed random split puts 60% of rows in training and 40% in evaluation. Features are scaled
 using the training rows only, so the evaluation rows do not inform the fit. The three methods:
@@ -80,10 +77,10 @@ The console table has one row per comparison:
   more weight to cases whose event times were less likely to be observed.
 - `Target` is the requested expected AUC of the generating score, and `Oracle` is that score's
   AUC on the evaluation rows once the outcomes are drawn. `Oracle` is roughly the best `AUROC`
-  any model could reach on these rows.
+  a model could reach on these rows; a fitted model can exceed it slightly by chance.
 - `Recovery` is the recovery of the structure's measure in the top 20 features, `Chance` the
-  recovery expected from selecting 20 features at random, and `Adjusted` the difference, called
-  recovery above chance.
+  recovery expected if the same selection (normally 20 features) went to features at random, and
+  `Adjusted` the difference, called recovery above chance.
 - `Top20` is the number of features counted as selected.
 
 The first three rows of the default run:
@@ -114,5 +111,5 @@ tie for the last places, they share them, each counted as a fraction of a select
 `Chance` comes from `evaluate_matched_recovery`, which gives the selection to features at
 random while keeping the number of selected features and their fractional shares. The script
 treats all 120 features as one pool, because every feature sits in a block of four with the
-same correlation, so no feature is easier to select than another. See
+same correlation, so no feature's correlation structure makes it easier to select. See
 [Matched chance recovery](evaluation.md#matched-chance-recovery).
