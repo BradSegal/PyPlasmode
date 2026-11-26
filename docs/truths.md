@@ -144,6 +144,35 @@ the selected features predict the generating score on held-out rows, whichever f
 use [`evaluate_signal_reconstruction`](evaluation.md#signal-reconstruction). `evaluate_ranking`
 raises `ValueError` for this signal, because it has no individual generating features to find.
 
+## Unequal weights
+
+Unequal weights let you test whether a method still finds the generating features that matter
+less. By default every generating feature has weight 1.0, so each matters equally. Real signals
+are rarely that even, and a method may find the strongest features and miss the rest.
+
+Set the weights yourself, as in the example above, or write `weights=SampledWeights(...)` in
+`SparseTruth`, `CorrelatedTruth` or `ModuleTruth` to draw them. Each weight's size is drawn
+evenly between `low` and `high` (default 0.5 to 1.5), and `signs="random"` also gives each weight
+a positive or negative sign with equal chance. The draw depends on the seed, so the same seed
+gives the same weights, and a new seed gives a new set for the same features.
+
+```python
+varied = ppm.ModuleTruth(set_name="pathway", weights=ppm.SampledWeights(low=0.5, high=2.0))
+varied_truth = ppm.materialize_truth(varied, population, feature_sets=module_sets, seed=3)
+print([(item.feature, round(item.weight, 2)) for item in varied_truth.weights])
+# [('A', 0.97), ('B', 0.58), ('C', 1.04)]
+
+coverage = ppm.evaluate_module(ranking, varied_truth, depths=(2,))
+print(round(coverage.at_depth[0].weighted_coverage, 2))  # 0.37
+```
+
+The drawn weights are in `truth.weights`, so you can report them and relate each feature's
+weight to whether it was found. Here the top two features hold A, which carries 0.97 of the 2.59
+units of weight, so coverage is 0.37. With `SparseTruth` and `CorrelatedTruth`, `evaluate_ranking`
+and `evaluate_groups` count each generating feature or group equally whatever its weight; compare
+the weights of the features found with those missed to see whether a method misses the weaker
+ones.
+
 ## Interaction
 
 Can a method detect features that matter only in combination, as when risk rises only if two

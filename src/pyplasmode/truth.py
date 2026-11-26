@@ -121,6 +121,37 @@ class MaterializedTruth:
 
 
 @dataclass(frozen=True, slots=True)
+class SampledWeights:
+    """Draw one weight per generating feature or group when the signal is built.
+
+    Use it as `weights=` in `SparseTruth`, `CorrelatedTruth` or `ModuleTruth` to test recovery when
+    generating features differ in importance. Each magnitude is drawn uniformly between `low` and
+    `high`. The draw depends only on the seed and the number of weights, so the same seed gives
+    the same weights, and it does not change which features an automatic selection picks. The
+    drawn values are reported in the `weights` of the materialised truth.
+
+    Attributes:
+        low: Smallest magnitude, greater than zero.
+        high: Largest magnitude, at least `low`. Equal bounds give every weight that magnitude.
+        signs: `"positive"` keeps every weight positive. `"random"` gives each weight a positive
+            or negative sign with equal probability.
+    """
+
+    low: float = 0.5
+    high: float = 1.5
+    signs: Literal["positive", "random"] = "positive"
+
+    def __post_init__(self) -> None:
+        if not (np.isfinite(self.low) and np.isfinite(self.high) and 0.0 < self.low <= self.high):
+            raise ValueError("sampled weights require finite bounds with 0 < low <= high")
+        if self.signs not in {"positive", "random"}:
+            raise ValueError("sampled weight signs must be positive or random")
+
+
+type WeightSpec = tuple[float, ...] | SampledWeights
+
+
+@dataclass(frozen=True, slots=True)
 class NullTruth:
     """A zero generating score."""
 
@@ -135,14 +166,15 @@ class SparseTruth:
     Attributes:
         count: Number of features to pick automatically.
         features: Unique IDs of explicitly chosen features, also the exact selection targets.
-        weights: Finite, non-zero coefficients in explicit feature order, defaulting to one.
+        weights: Finite, non-zero coefficients in explicit feature order, defaulting to one, or
+            `SampledWeights` to draw them, which also works with `count`.
         max_absolute_correlation: Maximum absolute Pearson correlation between any two automatically
             chosen features, in [0, 1). Ignored when `features` is supplied.
     """
 
     count: int | None = None
     features: tuple[str, ...] = ()
-    weights: tuple[float, ...] = ()
+    weights: WeightSpec = ()
     max_absolute_correlation: float = 0.7
 
     def __post_init__(self) -> None:
@@ -151,9 +183,10 @@ class SparseTruth:
         if self.count is not None:
             integer(self.count, "sparse count", minimum=1)
         identities(self.features, "sparse features", allow_empty=True)
-        if self.weights and len(self.weights) != len(self.features):
-            raise ValueError("sparse weights require one value per explicit feature")
-        _validate_weights(self.weights)
+        if isinstance(self.weights, tuple):
+            if self.weights and len(self.weights) != len(self.features):
+                raise ValueError("sparse weights require one value per explicit feature")
+            _validate_weights(self.weights)
         if not 0.0 <= self.max_absolute_correlation < 1.0:
             raise ValueError("max_absolute_correlation must be in [0, 1)")
 
@@ -169,14 +202,15 @@ class CorrelatedTruth:
         sentinels: One generating feature per group, in `group_names` order. In `"sentinels"`
             mode an empty tuple picks one member per group using the seed. The generating features
             are the exact recovery targets in this mode. Leave empty in `"group_means"` mode.
-        weights: Finite, non-zero coefficients in `group_names` order, defaulting to one.
+        weights: Finite, non-zero coefficients in `group_names` order, defaulting to one, or
+            `SampledWeights` to draw them.
         signal_form: `"sentinels"` uses the standardised value of each chosen feature.
             `"group_means"` uses the mean of each group's standardised features.
     """
 
     group_names: tuple[str, ...]
     sentinels: tuple[str, ...] = ()
-    weights: tuple[float, ...] = ()
+    weights: WeightSpec = ()
     signal_form: Literal["sentinels", "group_means"] = "sentinels"
 
     def __post_init__(self) -> None:
@@ -188,9 +222,10 @@ class CorrelatedTruth:
             raise ValueError("group_means has no direct sentinels")
         if self.sentinels and len(self.sentinels) != len(self.group_names):
             raise ValueError("sentinels must contain one feature per group")
-        if self.weights and len(self.weights) != len(self.group_names):
-            raise ValueError("correlated weights require one value per group")
-        _validate_weights(self.weights)
+        if isinstance(self.weights, tuple):
+            if self.weights and len(self.weights) != len(self.group_names):
+                raise ValueError("correlated weights require one value per group")
+            _validate_weights(self.weights)
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,17 +234,19 @@ class ModuleTruth:
 
     Attributes:
         set_name: Name of the set in `FeatureSets`.
-        weights: Finite, non-zero coefficients in set order, defaulting to one.
+        weights: Finite, non-zero coefficients in set order, defaulting to one, or
+            `SampledWeights` to draw them.
 
     Weighted recovery divides the sum of selected absolute weights by the total absolute weight.
     """
 
     set_name: str
-    weights: tuple[float, ...] = ()
+    weights: WeightSpec = ()
 
     def __post_init__(self) -> None:
         identities((self.set_name,), "module set_name")
-        _validate_weights(self.weights)
+        if isinstance(self.weights, tuple):
+            _validate_weights(self.weights)
 
 
 @dataclass(frozen=True, slots=True)
@@ -292,6 +329,20 @@ type TruthSpec = (
 def _validate_weights(weights: tuple[float, ...]) -> None:
     if any(not np.isfinite(weight) or weight == 0.0 for weight in weights):
         raise ValueError("truth weights must be finite and non-zero")
+
+
+_WEIGHT_STREAM = 0x5745494748  # keeps weight draws apart from automatic feature choices
+
+
+def _resolve_weights(weights: WeightSpec, count: int, seed: int) -> NDArray[np.float64]:
+    """Return one coefficient per generating feature or group, drawing them if requested."""
+    if isinstance(weights, SampledWeights):
+        rng = np.random.default_rng(np.random.SeedSequence((seed, _WEIGHT_STREAM)))
+        drawn = rng.uniform(weights.low, weights.high, size=count)
+        if weights.signs == "random":
+            drawn = drawn * rng.choice(np.asarray([-1.0, 1.0]), size=count)
+        return np.asarray(drawn, dtype=np.float64)
+    return np.asarray(weights or tuple(1.0 for _ in range(count)), dtype=np.float64)
 
 
 def _completed_standardized(
@@ -453,8 +504,7 @@ def materialize_truth(
                 standardized, truth.count, truth.max_absolute_correlation, rng
             )
             features = tuple(population.feature_ids[index] for index in selected)
-        raw_weights = truth.weights or tuple(1.0 for _ in features)
-        weights = np.asarray(raw_weights, dtype=np.float64)
+        weights = _resolve_weights(truth.weights, len(features), seed)
         raw = _weighted_signal(standardized, selected, weights)
         signal, center, scale = _standardize_signal(raw)
         return MaterializedTruth(
@@ -502,7 +552,7 @@ def materialize_truth(
         )
         standardized = _completed_standardized(population, required_features=required)
         positions = {feature: index for index, feature in enumerate(required)}
-        weights = np.asarray(truth.weights or tuple(1.0 for _ in groups), dtype=np.float64)
+        weights = _resolve_weights(truth.weights, len(groups), seed)
         if truth.signal_form == "sentinels":
             selected = np.arange(len(sentinels), dtype=np.int64)
             raw = _weighted_signal(standardized, selected, weights)
@@ -552,10 +602,9 @@ def materialize_truth(
         feature_set = feature_sets.get(truth.set_name)
         standardized = _completed_standardized(population, required_features=feature_set.members)
         selected = np.arange(len(feature_set.members), dtype=np.int64)
-        raw_weights = truth.weights or tuple(1.0 for _ in feature_set.members)
-        if len(raw_weights) != len(feature_set.members):
+        weights = _resolve_weights(truth.weights, len(feature_set.members), seed)
+        if len(weights) != len(feature_set.members):
             raise ValueError("module weights require one value per set member")
-        weights = np.asarray(raw_weights, dtype=np.float64)
         raw = _weighted_signal(standardized, selected, weights)
         signal, center, scale = _standardize_signal(raw)
         return MaterializedTruth(
