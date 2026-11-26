@@ -123,7 +123,8 @@ structure. For the built-in signals PyPlasmode:
    score. A null score stays zero.
 
 Because step 4 rescales the score, multiplying all weights by the same positive factor leaves
-the score unchanged. Weights (4, −2) give the same score as (2, −1). If you name a generating
+the score unchanged. Weights (4, −2) give the same score as (2, −1). `SampledWeights` draws
+the weights from the seed instead ([Unequal weights](truths.md#unequal-weights)). If you name a generating
 feature that is constant or entirely missing, generation raises `ValueError` because the feature
 cannot be standardised. Automatic sparse selection skips such features.
 

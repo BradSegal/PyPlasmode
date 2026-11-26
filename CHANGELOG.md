@@ -2,10 +2,16 @@
 
 ## Unreleased
 
-One addition to the graph evaluator; otherwise documentation. Existing results are unchanged.
+Two additions (sampled signal weights and a graph-evaluator field); otherwise documentation.
+Existing results are unchanged.
 
 ### Added
 
+- `SampledWeights` draws the weights of a sparse, correlated or distributed signal from the seed:
+  sizes evenly between two bounds, with positive or random signs. Pass it as `weights=` to test
+  recovery when generating features differ in importance. It also works with
+  `SparseTruth(count=...)`, which could not take weights before. Signals with explicit or default
+  weights are unchanged.
 - `evaluate_graph_region` reports `weighted_edge_coverage`: the summed weight of the region's
   edges with both ends selected, divided by the summed weight of all the region's edges. Edge
   weights were stored but not used before. `edge_coverage` still counts every edge equally.
